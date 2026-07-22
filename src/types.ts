@@ -43,6 +43,8 @@ export interface Site {
   scores: Scores;
   note: string;
   facts: Fact[];
+  /** Municipality / sub-area (e.g. "The Woodlands, TX"). Falls back to the metro. */
+  area?: string;
 }
 
 /** Where current staff live — context for the staff-commute factor. */

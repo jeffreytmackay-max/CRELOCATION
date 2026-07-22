@@ -73,7 +73,7 @@ function siteIcon(score: number, color: string, selected: boolean, d: number) {
 
 /** Center column: interactive Leaflet map with all marker layers + overlays. */
 export function MapView() {
-  const { city, state, scored, selId, selectSite, addMode, cancelAdd } = useApp();
+  const { city, state, scored, selId, selectSite, addMode, cancelAdd, fitAll } = useApp();
   const Ly = state.layers;
 
   return (
@@ -219,6 +219,36 @@ export function MapView() {
           Candidate submarkets · scaled &amp; colored by live score
         </div>
       </div>
+
+      <button
+        onClick={fitAll}
+        title="Zoom to show every candidate site across the metro"
+        style={{
+          position: 'absolute',
+          top: 14,
+          right: 14,
+          zIndex: 800,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 7,
+          padding: '8px 13px',
+          borderRadius: 999,
+          cursor: 'pointer',
+          fontFamily: 'var(--font-sans)',
+          fontSize: 12,
+          fontWeight: 700,
+          color: 'var(--text-strong)',
+          background: 'rgba(255,255,255,.94)',
+          backdropFilter: 'blur(6px)',
+          border: '1px solid var(--border-subtle)',
+          boxShadow: 'var(--shadow-sm)',
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+        </svg>
+        Fit all sites
+      </button>
 
       <Legend />
     </div>

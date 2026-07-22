@@ -24,6 +24,38 @@ const SEED_STAFF: Record<string, StaffLocation[]> = {
   ],
 };
 
+/** Sample municipality / sub-area label per candidate site (by city → site id). */
+const SEED_AREAS: Record<string, Record<string, string>> = {
+  houston: {
+    tmc: 'Houston, TX',
+    energy: 'Houston, TX',
+    woodlands: 'The Woodlands, TX',
+    sugarland: 'Sugar Land, TX',
+    uptown: 'Houston, TX',
+  },
+  sanramon: {
+    bishopranch: 'San Ramon, CA',
+    dublin: 'Dublin, CA',
+    walnutcreek: 'Walnut Creek, CA',
+    hacienda: 'Pleasanton, CA',
+    emeryville: 'Emeryville, CA',
+  },
+  sandiego: {
+    torreypines: 'La Jolla, CA',
+    sorrento: 'San Diego, CA',
+    downtown: 'San Diego, CA',
+    kearnymesa: 'San Diego, CA',
+    carlsbad: 'Carlsbad, CA',
+  },
+  losangeles: {
+    westwood: 'Los Angeles, CA',
+    elsegundo: 'El Segundo, CA',
+    pasadena: 'Pasadena, CA',
+    culvercity: 'Culver City, CA',
+    cedars: 'Los Angeles, CA',
+  },
+};
+
 /** Fresh copy of the sample cities used as seed / reset data. */
 export function seedCities(): City[] {
   const cities: City[] = [
@@ -262,6 +294,10 @@ export function seedCities(): City[] {
   ];
   cities.forEach((c) => {
     c.staff = SEED_STAFF[c.id] ?? [];
+    const areas = SEED_AREAS[c.id] ?? {};
+    c.sites.forEach((s) => {
+      if (areas[s.id]) s.area = areas[s.id];
+    });
   });
   return cities;
 }

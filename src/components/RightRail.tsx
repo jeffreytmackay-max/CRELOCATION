@@ -19,7 +19,7 @@ const sectionLabel: React.CSSProperties = {
 
 /** Right rail: full detail for the selected candidate. */
 export function RightRail() {
-  const { scored, selId, city, norm, getDrive, setDrive } = useApp();
+  const { scored, selId, city, norm, getDrive, setDrive, editSite } = useApp();
   const s = scored.find((x) => x.id === selId);
 
   return (
@@ -77,9 +77,21 @@ export function RightRail() {
           >
             {s.name}
           </h2>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginTop: 4 }}>
-            {city.name}, {city.state || ''}
-          </div>
+          {s.isOffice ? (
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginTop: 4 }}>
+              {city.name}, {city.state || ''}
+            </div>
+          ) : (
+            <input
+              className="sx-inline-edit"
+              value={s.area ?? ''}
+              placeholder={`${city.name}, ${city.state || ''}`}
+              onChange={(e) => editSite(s.id, 'area', e.target.value)}
+              aria-label="Site city or area"
+              title="City / area — click to edit"
+              style={{ marginTop: 4 }}
+            />
+          )}
           <p
             style={{
               margin: '12px 0 0',

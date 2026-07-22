@@ -21,7 +21,12 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   and re-sizes/re-colors the map pins instantly.
 - **Interactive map.** Pannable OpenStreetMap basemap with score-scaled candidate
   pins, transplant-center and airport markers, and an optional office diamond.
-  Click a pin or a ranking row to select a site.
+  Click a pin or a ranking row to select a site. **Fit all sites** zooms/pans to
+  frame every candidate across the greater metro at once.
+- **Greater-metro exploration.** Candidate pins are free-form — drop them
+  anywhere in the metro, not just the core city. Each candidate carries an
+  editable **city / area** label (e.g. "The Woodlands, TX") shown in the ranking
+  and detail panel, so submarkets in surrounding municipalities read clearly.
 - **Office benchmark.** Enable the current office to inject it into the ranked
   list as a "Current" pseudo-site scored on the same factors.
 - **Add on map.** Drop new candidate sites, transplant centers, airports, or

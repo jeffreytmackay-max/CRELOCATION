@@ -159,6 +159,33 @@ button {
   background: #e9e6e3;
 }
 
+/* ---- Inline-editable subtitle (site area) -------------------------- */
+.sx-inline-edit {
+  border: none;
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 2px 5px;
+  margin-left: -5px;
+  border-radius: 6px;
+  outline: none;
+  width: calc(100% + 5px);
+  transition: background 0.12s var(--ease-out);
+}
+.sx-inline-edit:hover {
+  background: var(--tmdx-neutral-100);
+}
+.sx-inline-edit:focus {
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+.sx-inline-edit::placeholder {
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
 /* ---- Score-pin marker inner ---------------------------------------- */
 .sx-mark {
   display: flex;

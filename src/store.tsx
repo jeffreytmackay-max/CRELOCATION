@@ -46,6 +46,11 @@ export interface Store {
 
   registerMap: (map: LeafletMap) => void;
   onMapClick: (lat: number, lng: number) => void;
+  /** Zoom/pan the map to frame every candidate site (+ office when enabled). */
+  fitAll: () => void;
+
+  /** Edit a field on a candidate site in the current city (ignores the office pseudo-site). */
+  editSite: (id: string, field: 'area', v: string) => void;
 
   setWeight: (key: FactorKey, val: number) => void;
   resetWeights: () => void;
@@ -156,6 +161,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (s && s.lat != null && mapRef.current) mapRef.current.panTo([s.lat, s.lng]);
     },
     [apply, scored],
+  );
+
+  const fitAll = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const pts: [number, number][] = city.sites
+      .filter((s) => s.lat != null && s.lng != null)
+      .map((s) => [s.lat, s.lng]);
+    if (city.office.on && city.office.lat != null && city.office.lng != null) {
+      pts.push([city.office.lat, city.office.lng]);
+    }
+    if (pts.length === 0) return;
+    if (pts.length === 1) {
+      map.setView(pts[0], 12);
+      return;
+    }
+    map.fitBounds(pts, { padding: [60, 60], maxZoom: 14 });
+  }, [city]);
+
+  const editSite = useCallback(
+    (id: string, field: 'area', v: string) =>
+      apply((d) => {
+        const s = findCity(d).sites.find((x) => x.id === id);
+        if (s) s[field] = v;
+      }),
+    [apply],
   );
 
   const getDrive = useCallback(
@@ -358,6 +389,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     cityModalOpen,
     registerMap,
     onMapClick,
+    fitAll,
+    editSite,
     setWeight,
     resetWeights,
     selectCity,

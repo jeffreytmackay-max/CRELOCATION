@@ -223,6 +223,20 @@ function Ranking() {
                     </span>
                   )}
                 </div>
+                {s.area && (
+                  <div
+                    style={{
+                      fontSize: 10.5,
+                      color: 'var(--text-muted)',
+                      marginTop: 2,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {s.area}
+                  </div>
+                )}
                 <div
                   style={{
                     height: 5,
