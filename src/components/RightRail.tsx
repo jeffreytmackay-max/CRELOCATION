@@ -1,4 +1,12 @@
+import { useState } from 'react';
 import { FACTORS } from '../data/factors';
+import {
+  DEPARTURE_OPTIONS,
+  departureTimestamp,
+  fetchDriveTimes,
+  type DepartureChoice,
+  type LatLng,
+} from '../lib/drivetimes';
 import { useApp } from '../store';
 
 const sectionLabel: React.CSSProperties = {
@@ -239,6 +247,8 @@ export function RightRail() {
           <DriveTimes
             selId={selId}
             siteName={s.name}
+            siteLat={s.lat}
+            siteLng={s.lng}
             officeOff={!city.office.on}
             getDrive={getDrive}
             setDrive={setDrive}
@@ -253,34 +263,117 @@ interface Dest {
   id: string;
   label: string;
   color: string;
+  lat: number;
+  lng: number;
 }
 
 function DriveTimes({
   selId,
   siteName,
+  siteLat,
+  siteLng,
   officeOff,
   getDrive,
   setDrive,
 }: {
   selId: string;
   siteName: string;
+  siteLat: number;
+  siteLng: number;
   officeOff: boolean;
   getDrive: (o: string, r: string) => string;
   setDrive: (o: string, r: string, v: string) => void;
 }) {
   const { city } = useApp();
   const dests: Dest[] = [
-    ...city.centers.map((c) => ({ id: c.id, label: c.short || 'Center', color: '#9d2235' })),
-    ...city.airports.map((a) => ({ id: a.id, label: (a.code || '?').toUpperCase(), color: '#44546a' })),
+    ...city.centers.map((c) => ({ id: c.id, label: c.short || 'Center', color: '#9d2235', lat: c.lat, lng: c.lng })),
+    ...city.airports.map((a) => ({ id: a.id, label: (a.code || '?').toUpperCase(), color: '#44546a', lat: a.lat, lng: a.lng })),
   ];
+
+  const [dep, setDep] = useState<DepartureChoice>('now');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [filledAt, setFilledAt] = useState<string | null>(null);
+
+  async function autofill() {
+    setLoading(true);
+    setError(null);
+    setFilledAt(null);
+    try {
+      const refs = dests.filter((d) => d.lat != null && d.lng != null);
+      if (!refs.length) {
+        setError('Add transplant centers or airports first.');
+        return;
+      }
+      const hasOffice = city.office.lat != null && city.office.lng != null;
+      const origins: LatLng[] = [{ lat: siteLat, lng: siteLng }];
+      if (hasOffice) origins.push({ lat: city.office.lat, lng: city.office.lng });
+      const destinations: LatLng[] = refs.map((r) => ({ lat: r.lat, lng: r.lng }));
+
+      const durations = await fetchDriveTimes(origins, destinations, departureTimestamp(dep));
+
+      (durations[0] || []).forEach((mins, j) => {
+        if (mins != null) setDrive(selId, refs[j].id, String(mins));
+      });
+      if (hasOffice && durations[1]) {
+        durations[1].forEach((mins, j) => {
+          if (mins != null) setDrive('office', refs[j].id, String(mins));
+        });
+      }
+      const label = DEPARTURE_OPTIONS.find((o) => o.value === dep)?.label ?? '';
+      setFilledAt(label);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Drive-time request failed.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <>
       <div style={{ ...sectionLabel, margin: '26px 0 4px' }}>Drive times</div>
       <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-        {siteName} vs. your office — minutes; enter your own figures. Δ shows minutes saved (−) or
-        lost (+) versus the office.
+        {siteName} vs. your office — minutes. Auto-fill with live/predictive traffic, or type your
+        own. Δ shows minutes saved (−) or lost (+) versus the office.
       </div>
+
+      {/* Traffic-aware auto-fill */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
+        <select
+          className="sx-inp"
+          value={dep}
+          onChange={(e) => setDep(e.target.value as DepartureChoice)}
+          disabled={loading}
+          aria-label="Departure time for traffic estimate"
+          style={{ flex: 1, cursor: 'pointer' }}
+        >
+          {DEPARTURE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <button
+          className="sx-btn sx-btn-sm sx-btn-primary"
+          onClick={autofill}
+          disabled={loading}
+          style={{ flex: 'none', opacity: loading ? 0.7 : 1 }}
+        >
+          {loading ? 'Calculating…' : 'Auto-fill traffic'}
+        </button>
+      </div>
+      <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 12 }}>
+        {error ? (
+          <span style={{ color: 'var(--tmdx-crimson)' }}>{error}</span>
+        ) : filledAt ? (
+          <span style={{ color: 'var(--tmdx-green)' }}>
+            Filled with traffic for “{filledAt}”. You can still edit any value.
+          </span>
+        ) : (
+          <>Powered by Google Distance Matrix — driving times with traffic.</>
+        )}
+      </div>
+
       {officeOff && (
         <div
           style={{

@@ -27,9 +27,13 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
 - **Add on map.** Drop new candidate sites, transplant centers, airports, or
   reposition your office by clicking the map. Add new metros via the Add-city
   modal.
-- **Drive times.** Per-site vs. office drive-time comparison with a live Δ
-  (green when closer than the office, crimson when farther). Entered by hand in
-  this build — see [Production gaps](#production-gaps).
+- **Drive times (traffic-aware).** Per-site vs. office drive-time comparison
+  with a live Δ (green when closer than the office, crimson when farther).
+  **Auto-fill** computes driving times from the site and office to every
+  transplant center and airport using the **Google Distance Matrix API** with
+  live/predictive traffic for a chosen departure time (now, or a typical weekday
+  8am / noon / 5pm). Values remain editable by hand. Requires a Google Maps API
+  key — see [Environment variables](#environment-variables).
 - **Staff locations.** Record how many employees live where (city / state / ZIP +
   headcount) per metro, with a live total — context for the staff-commute factor.
   Managed in the Reference points panel.
@@ -57,9 +61,27 @@ npm run build    # type-check + production build to dist/
 npm run preview  # preview the production build
 ```
 
+## Environment variables
+
+| Variable              | Where            | Purpose                                                        |
+| --------------------- | ---------------- | -------------------------------------------------------------- |
+| `GOOGLE_MAPS_API_KEY` | server-side only | Drive-time auto-fill via Google Distance Matrix (`/api/drivetimes`). Never exposed to the browser. |
+
+**Vercel:** Project → Settings → Environment Variables → add `GOOGLE_MAPS_API_KEY`
+(all environments) → redeploy. Enable the **Distance Matrix API** on the key in
+the [Google Cloud console](https://console.cloud.google.com/) and restrict it.
+
+**Local:** copy `.env.example` to `.env`, fill in the key, and run `vercel dev`
+(the `/api` function does not run under plain `vite dev`). See `.env.example`.
+
+Without a key the app still works — the drive-time **Auto-fill** button returns a
+clear "add a key" message, and manual entry is unaffected.
+
 ## Project structure
 
 ```
+api/
+  drivetimes.js         # Vercel function: Google Distance Matrix proxy (traffic)
 src/
   main.tsx              # entry
   App.tsx               # layout: header, nav, three columns, overlays
@@ -71,6 +93,7 @@ src/
   lib/
     scoring.ts          # normalize / composite / scoreCity / scoreColor
     storage.ts          # load / save / export / import
+    drivetimes.ts       # client for /api/drivetimes + departure-time presets
   components/
     Header.tsx          # brand + data actions
     CityNav.tsx         # city tabs + reference-points toggle
@@ -109,9 +132,9 @@ lockup.
 Deliberate placeholders carried over from the prototype, to close for
 production:
 
-1. **Drive times & distances** are entered by hand. Replace with a
-   routing/distance-matrix API (Google Distance Matrix, Mapbox Matrix) keyed off
-   the office and each site/reference lat-lng.
+1. **Drive times** — ✅ done. Traffic-aware auto-fill via the Google Distance
+   Matrix API (`/api/drivetimes`); manual override still supported. Still to do:
+   drive **distances** (miles) alongside times, and caching to limit API calls.
 2. **Geocoding** typed addresses → coordinates (replace, or complement,
    click-to-place).
 3. **Backend persistence** + multi-user projects/sharing (replace
