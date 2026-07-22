@@ -1,0 +1,63 @@
+/*
+ * TransMedics design-system tokens (reconstructed).
+ *
+ * The prototype linked a private "_ds/tmdx-collateral-…" bundle that is not
+ * part of this repository. These custom properties recreate the token values
+ * documented in the design handoff so the UI renders identically. When the
+ * real design-system package is available, replace this file with its
+ * tokens/*.css imports.
+ */
+
+:root {
+  /* ---- Type ---------------------------------------------------------- */
+  --font-sans: 'Mulish', 'Avenir Next LT Pro', 'Avenir Next', -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  /* ---- Brand palette ------------------------------------------------- */
+  --tmdx-crimson: #9d2235; /* primary */
+  --tmdx-crimson-deep: #740223; /* hover / pressed */
+  --tmdx-rose: #c45057; /* links, tints */
+  --tmdx-coral: #ff7f41;
+  --tmdx-peach: #ffae81;
+  --tmdx-accent: #e0996a; /* warm accent */
+  --tmdx-slate: #44546a; /* airports */
+  --tmdx-charcoal: #302f32; /* ink / office */
+  --tmdx-green: #1f8f5f; /* positive delta */
+
+  /* ---- Neutrals ------------------------------------------------------ */
+  --tmdx-neutral-50: #faf9f8;
+  --tmdx-neutral-100: #f3f1ef;
+  --tmdx-neutral-200: #efecea; /* cream — pill / bar track */
+  --tmdx-neutral-300: #d9d3d0; /* scrollbars, hairlines-strong */
+  --tmdx-grey: #8a8790; /* weak-score grey */
+
+  /* ---- Semantic: brand ---------------------------------------------- */
+  --brand-primary: var(--tmdx-crimson);
+
+  /* ---- Semantic: text ----------------------------------------------- */
+  --text-strong: #302f32;
+  --text-body: #4d4d50;
+  --text-muted: #75787b;
+  --text-link: var(--tmdx-rose);
+
+  /* ---- Semantic: surfaces ------------------------------------------- */
+  --surface-page: #ffffff;
+  --surface-subtle: var(--tmdx-neutral-50);
+  --surface-card: #ffffff;
+  --surface-cream: var(--tmdx-neutral-200);
+
+  /* ---- Semantic: borders / focus ------------------------------------ */
+  --border-subtle: rgba(48, 47, 50, 0.09);
+  --border-default: rgba(48, 47, 50, 0.18);
+  --focus-ring: rgba(196, 80, 87, 0.28);
+
+  /* ---- Shadows (soft, warm-tinted) ---------------------------------- */
+  --shadow-sm: 0 1px 4px rgba(48, 47, 50, 0.1);
+  --shadow-md: 0 6px 20px rgba(48, 47, 50, 0.16);
+  --shadow-lg: 0 16px 44px rgba(48, 47, 50, 0.22);
+
+  /* ---- Radius / motion ---------------------------------------------- */
+  --radius-pill: 999px;
+  --radius-card: 16px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}

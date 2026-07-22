@@ -1,0 +1,61 @@
+import { seedCities } from '../data/seed';
+import { DEFAULT_WEIGHTS } from '../data/factors';
+import type { AppState } from '../types';
+
+export const STORE_KEY = 'tmdx_site_explorer_v2';
+
+/** A pristine seed state. */
+export function freshState(): AppState {
+  return {
+    weights: { ...DEFAULT_WEIGHTS },
+    cityId: 'houston',
+    selectedSiteId: null,
+    panelOpen: false,
+    layers: { centers: true, airports: true, office: true },
+    cities: seedCities(),
+    driveTimes: {},
+  };
+}
+
+/** Load persisted state, repairing obvious gaps; seeds on any failure. */
+export function loadState(): AppState {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      const loaded = JSON.parse(raw) as AppState;
+      if (!loaded.cities || !loaded.cities.length) loaded.cities = seedCities();
+      return loaded;
+    }
+  } catch {
+    /* fall through to seed */
+  }
+  return freshState();
+}
+
+export function saveState(state: AppState): void {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  } catch {
+    /* storage unavailable — non-fatal */
+  }
+}
+
+/** Download the current state as site-selection-data.json. */
+export function exportState(state: AppState): void {
+  const blob = new Blob([JSON.stringify(state, null, 2)], {
+    type: 'application/json',
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'site-selection-data.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Parse an imported JSON file into a validated AppState. Throws on bad data. */
+export function parseImport(text: string): AppState {
+  const data = JSON.parse(text) as AppState;
+  if (!data.cities) throw new Error('Missing cities');
+  return data;
+}
