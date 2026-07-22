@@ -1,0 +1,170 @@
+@import './tokens.css';
+@import 'leaflet/dist/leaflet.css';
+
+/* ---- Reset / base -------------------------------------------------- */
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  font-family: var(--font-sans);
+  color: var(--text-strong);
+  background: var(--surface-page);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+#root {
+  height: 100vh;
+}
+a {
+  color: var(--text-link);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--tmdx-crimson-deep);
+}
+button {
+  font-family: var(--font-sans);
+}
+
+/* ---- Weighting sliders --------------------------------------------- */
+.sx-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+}
+.sx-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--tmdx-crimson);
+  box-shadow: 0 1px 4px rgba(48, 47, 50, 0.28);
+  cursor: pointer;
+}
+.sx-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--tmdx-crimson);
+  box-shadow: 0 1px 4px rgba(48, 47, 50, 0.28);
+  cursor: pointer;
+}
+
+/* ---- Scrollbars ---------------------------------------------------- */
+.sx-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--tmdx-neutral-300) transparent;
+}
+.sx-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.sx-scroll::-webkit-scrollbar-thumb {
+  background: var(--tmdx-neutral-300);
+  border-radius: 999px;
+}
+
+/* ---- Inputs -------------------------------------------------------- */
+.sx-inp {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text-strong);
+  background: #fff;
+  outline: none;
+}
+.sx-inp:focus {
+  border-color: var(--tmdx-rose);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* ---- Buttons (pill) ------------------------------------------------ */
+.sx-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.16s var(--ease-out);
+  border: 1.5px solid transparent;
+}
+.sx-btn-sm {
+  font-size: 12px;
+  padding: 6px 13px;
+}
+.sx-btn-primary {
+  background: var(--tmdx-crimson);
+  color: #fff;
+  border-color: var(--tmdx-crimson);
+}
+.sx-btn-primary:hover {
+  background: var(--tmdx-crimson-deep);
+  border-color: var(--tmdx-crimson-deep);
+}
+.sx-btn-secondary {
+  background: #fff;
+  color: var(--text-strong);
+  border-color: var(--border-default);
+}
+.sx-btn-secondary:hover {
+  border-color: var(--tmdx-rose);
+}
+.sx-btn-ghost {
+  background: transparent;
+  color: var(--text-body);
+  border-color: transparent;
+}
+.sx-btn-ghost:hover {
+  background: var(--tmdx-neutral-200);
+}
+
+/* ---- Leaflet marker tooltips --------------------------------------- */
+.sx-tt {
+  background: rgba(48, 47, 50, 0.88) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 999px !important;
+  font-family: var(--font-sans) !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  padding: 2px 9px !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28) !important;
+  white-space: nowrap;
+}
+.sx-tt::before {
+  display: none !important;
+}
+.sx-tt-ref {
+  background: #302f32 !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.02em;
+}
+.leaflet-container {
+  font-family: var(--font-sans);
+  background: #e9e6e3;
+}
+
+/* ---- Score-pin marker inner ---------------------------------------- */
+.sx-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+}
