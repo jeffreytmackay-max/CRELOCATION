@@ -32,6 +32,10 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
 - **Add on map.** Drop new candidate sites, transplant centers, airports, or
   reposition your office by clicking the map. Add new metros via the Add-city
   modal.
+- **Find nearby.** Auto-discover transplant centers/hospitals and airports around
+  the metro via the **Google Places API** and add them to the reference points
+  (de-duped against existing ones). Uses the same key as drive times — enable the
+  **Places API** on it. See [Environment variables](#environment-variables).
 - **Drive times (traffic-aware).** Per-site vs. office drive-time comparison
   with a live Δ (green when closer than the office, crimson when farther).
   **Auto-fill** computes driving times from the site and office to every
@@ -70,23 +74,25 @@ npm run preview  # preview the production build
 
 | Variable              | Where            | Purpose                                                        |
 | --------------------- | ---------------- | -------------------------------------------------------------- |
-| `GOOGLE_MAPS_API_KEY` | server-side only | Drive-time auto-fill via Google Distance Matrix (`/api/drivetimes`). Never exposed to the browser. |
+| `GOOGLE_MAPS_API_KEY` | server-side only | Drive-time auto-fill (`/api/drivetimes`, Distance Matrix API) and Find-nearby discovery (`/api/places`, Places API). Never exposed to the browser. |
 
 **Vercel:** Project → Settings → Environment Variables → add `GOOGLE_MAPS_API_KEY`
-(all environments) → redeploy. Enable the **Distance Matrix API** on the key in
-the [Google Cloud console](https://console.cloud.google.com/) and restrict it.
+(all environments) → redeploy. In the [Google Cloud console](https://console.cloud.google.com/),
+enable **both** the **Distance Matrix API** and the **Places API** on the key,
+and restrict it.
 
 **Local:** copy `.env.example` to `.env`, fill in the key, and run `vercel dev`
-(the `/api` function does not run under plain `vite dev`). See `.env.example`.
+(the `/api` functions do not run under plain `vite dev`). See `.env.example`.
 
-Without a key the app still works — the drive-time **Auto-fill** button returns a
-clear "add a key" message, and manual entry is unaffected.
+Without a key the app still works — the **Auto-fill** and **Find nearby** buttons
+return a clear "add a key" message, and everything else is unaffected.
 
 ## Project structure
 
 ```
 api/
   drivetimes.js         # Vercel function: Google Distance Matrix proxy (traffic)
+  places.js             # Vercel function: Google Places proxy (find nearby refs)
 src/
   main.tsx              # entry
   App.tsx               # layout: header, nav, three columns, overlays
@@ -99,6 +105,7 @@ src/
     scoring.ts          # normalize / composite / scoreCity / scoreColor
     storage.ts          # load / save / export / import
     drivetimes.ts       # client for /api/drivetimes + departure-time presets
+    places.ts           # client for /api/places (find nearby)
   components/
     Header.tsx          # brand + data actions
     CityNav.tsx         # city tabs + reference-points toggle

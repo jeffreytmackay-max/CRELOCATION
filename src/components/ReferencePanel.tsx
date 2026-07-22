@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { findNearby } from '../lib/places';
 import { useApp } from '../store';
 
 const cbStyle: React.CSSProperties = {
@@ -5,6 +7,12 @@ const cbStyle: React.CSSProperties = {
   width: 15,
   height: 15,
 };
+
+interface FindStatus {
+  kind: 'centers' | 'airports';
+  text: string;
+  err: boolean;
+}
 
 /** Floating reference-points editor over the right rail. */
 export function ReferencePanel() {
@@ -21,7 +29,36 @@ export function ReferencePanel() {
     addStaff,
     editStaff,
     removeStaff,
+    addDiscoveredRefs,
   } = useApp();
+
+  const [busy, setBusy] = useState<'centers' | 'airports' | null>(null);
+  const [status, setStatus] = useState<FindStatus | null>(null);
+
+  async function discover(kind: 'centers' | 'airports') {
+    setBusy(kind);
+    setStatus(null);
+    try {
+      const found = await findNearby(
+        kind === 'centers' ? 'transplant' : 'airport',
+        city.center[0],
+        city.center[1],
+      );
+      const added = addDiscoveredRefs(kind, found);
+      const noun = kind === 'centers' ? 'transplant center' : 'airport';
+      const text =
+        added > 0
+          ? `Added ${added} ${noun}${added === 1 ? '' : 's'}${kind === 'airports' ? ' — set their codes below.' : '.'}`
+          : found.length
+            ? 'Nothing new — the nearby ones are already listed.'
+            : 'None found nearby.';
+      setStatus({ kind, text, err: false });
+    } catch (e) {
+      setStatus({ kind, text: e instanceof Error ? e.message : 'Discovery failed.', err: true });
+    } finally {
+      setBusy(null);
+    }
+  }
 
   if (!state.panelOpen) return null;
   const Ly = state.layers;
@@ -169,7 +206,13 @@ export function ReferencePanel() {
 
         {/* Transplant centers */}
         <div style={{ padding: '16px 18px', borderBottom: '1px solid var(--border-subtle)' }}>
-          <SectionHeader label="Transplant centers" onAdd={() => startAdd('center')} />
+          <SectionHeader
+            label="Transplant centers"
+            onAdd={() => startAdd('center')}
+            onFind={() => discover('centers')}
+            finding={busy === 'centers'}
+          />
+          <FindStatusLine status={status} kind="centers" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {city.centers.map((c) => (
               <div
@@ -205,7 +248,13 @@ export function ReferencePanel() {
 
         {/* Airports */}
         <div style={{ padding: '16px 18px', borderBottom: '1px solid var(--border-subtle)' }}>
-          <SectionHeader label="Airports" onAdd={() => startAdd('airport')} />
+          <SectionHeader
+            label="Airports"
+            onAdd={() => startAdd('airport')}
+            onFind={() => discover('airports')}
+            finding={busy === 'airports'}
+          />
+          <FindStatusLine status={status} kind="airports" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {city.airports.map((a) => (
               <div key={a.id} style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
@@ -329,33 +378,70 @@ export function ReferencePanel() {
   );
 }
 
+const linkBtnStyle: React.CSSProperties = {
+  fontFamily: 'var(--font-sans)',
+  fontSize: 11.5,
+  fontWeight: 700,
+  color: 'var(--brand-primary)',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  padding: '2px 4px',
+};
+
 function SectionHeader({
   label,
   onAdd,
   addLabel = '+ Add on map',
+  onFind,
+  finding = false,
 }: {
   label: string;
   onAdd: () => void;
   addLabel?: string;
+  onFind?: () => void;
+  finding?: boolean;
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 11 }}>
       <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-strong)' }}>{label}</span>
-      <button
-        onClick={onAdd}
-        style={{
-          fontFamily: 'var(--font-sans)',
-          fontSize: 11.5,
-          fontWeight: 700,
-          color: 'var(--brand-primary)',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          padding: '2px 4px',
-        }}
-      >
-        {addLabel}
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 'none' }}>
+        {onFind && (
+          <button
+            onClick={onFind}
+            disabled={finding}
+            title="Discover nearby places with Google and add them"
+            style={{ ...linkBtnStyle, opacity: finding ? 0.6 : 1 }}
+          >
+            {finding ? 'Finding…' : 'Find nearby'}
+          </button>
+        )}
+        <button onClick={onAdd} style={linkBtnStyle}>
+          {addLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FindStatusLine({
+  status,
+  kind,
+}: {
+  status: FindStatus | null;
+  kind: 'centers' | 'airports';
+}) {
+  if (!status || status.kind !== kind) return null;
+  return (
+    <div
+      style={{
+        fontSize: 10.5,
+        lineHeight: 1.4,
+        margin: '-4px 0 11px',
+        color: status.err ? 'var(--tmdx-crimson)' : 'var(--tmdx-green)',
+      }}
+    >
+      {status.text}
     </div>
   );
 }

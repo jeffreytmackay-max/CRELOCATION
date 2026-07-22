@@ -11,6 +11,7 @@ import {
 import type { Map as LeafletMap } from 'leaflet';
 import { DEFAULT_WEIGHTS } from './data/factors';
 import { normalize, scoreCity } from './lib/scoring';
+import type { DiscoveredPlace } from './lib/places';
 import {
   exportState,
   freshState,
@@ -75,6 +76,9 @@ export interface Store {
   addStaff: () => void;
   editStaff: (id: string, field: 'city' | 'state' | 'zip' | 'employees', v: string) => void;
   removeStaff: (id: string) => void;
+
+  /** Append discovered centers/airports, skipping near-duplicates. Returns count added. */
+  addDiscoveredRefs: (kind: 'centers' | 'airports', items: DiscoveredPlace[]) => number;
 
   startAdd: (kind: AddKind) => void;
   cancelAdd: () => void;
@@ -272,6 +276,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [apply],
   );
 
+  const addDiscoveredRefs = useCallback(
+    (kind: 'centers' | 'airports', items: DiscoveredPlace[]): number => {
+      const existing: { lat: number; lng: number }[] =
+        kind === 'centers' ? city.centers : city.airports;
+      // ~0.004° ≈ 400 m — treats results at the same site as duplicates.
+      const near = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
+        Math.abs(a.lat - b.lat) < 0.004 && Math.abs(a.lng - b.lng) < 0.004;
+      const fresh: DiscoveredPlace[] = [];
+      items.forEach((it) => {
+        if (!existing.some((e) => near(e, it)) && !fresh.some((f) => near(f, it))) {
+          fresh.push(it);
+        }
+      });
+      if (!fresh.length) return 0;
+      apply((d) => {
+        const c = findCity(d);
+        if (kind === 'centers') {
+          fresh.forEach((it) =>
+            c.centers.push({ id: uid('c'), short: it.name, address: it.address, lat: it.lat, lng: it.lng }),
+          );
+        } else {
+          fresh.forEach((it) =>
+            c.airports.push({ id: uid('a'), code: it.code || '', name: it.name, lat: it.lat, lng: it.lng }),
+          );
+        }
+      });
+      return fresh.length;
+    },
+    [apply, city],
+  );
+
   const startAdd = useCallback((kind: AddKind) => setAddMode(kind), []);
   const cancelAdd = useCallback(() => setAddMode(null), []);
 
@@ -406,6 +441,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addStaff,
     editStaff,
     removeStaff,
+    addDiscoveredRefs,
     startAdd,
     cancelAdd,
     openCityModal,
