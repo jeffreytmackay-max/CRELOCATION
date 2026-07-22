@@ -18,13 +18,19 @@ export function ReferencePanel() {
     editRef,
     removeRef,
     startAdd,
+    addStaff,
+    editStaff,
+    removeStaff,
   } = useApp();
 
   if (!state.panelOpen) return null;
   const Ly = state.layers;
+  const staff = city.staff ?? [];
+  const totalStaff = staff.reduce((a, s) => a + (parseInt(s.employees, 10) || 0), 0);
 
   return (
     <div
+      id="panel"
       style={{
         position: 'fixed',
         top: 132,
@@ -198,7 +204,7 @@ export function ReferencePanel() {
         </div>
 
         {/* Airports */}
-        <div style={{ padding: '16px 18px 20px' }}>
+        <div style={{ padding: '16px 18px', borderBottom: '1px solid var(--border-subtle)' }}>
           <SectionHeader label="Airports" onAdd={() => startAdd('airport')} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {city.airports.map((a) => (
@@ -222,12 +228,116 @@ export function ReferencePanel() {
             ))}
           </div>
         </div>
+
+        {/* Staff locations */}
+        <div style={{ padding: '16px 18px 20px' }}>
+          <SectionHeader label="Staff locations" addLabel="+ Add" onAdd={addStaff} />
+          <div style={{ fontSize: 11, lineHeight: 1.4, color: 'var(--text-muted)', margin: '-4px 0 12px' }}>
+            Employees by home city / ZIP — context for the staff-commute factor.
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {staff.map((s) => (
+              <div
+                key={s.id}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                  paddingBottom: 12,
+                  borderBottom: '1px dashed var(--border-subtle)',
+                }}
+              >
+                <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+                  <input
+                    className="sx-inp"
+                    value={s.city}
+                    onChange={(e) => editStaff(s.id, 'city', e.target.value)}
+                    placeholder="City"
+                    style={{ flex: 1 }}
+                  />
+                  <RemoveButton onClick={() => removeStaff(s.id)} />
+                </div>
+                <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+                  <input
+                    className="sx-inp"
+                    value={s.state}
+                    onChange={(e) => editStaff(s.id, 'state', e.target.value)}
+                    placeholder="State"
+                    style={{ width: 56, flex: 'none', textTransform: 'uppercase', fontWeight: 700 }}
+                  />
+                  <input
+                    className="sx-inp"
+                    value={s.zip}
+                    onChange={(e) => editStaff(s.id, 'zip', e.target.value)}
+                    placeholder="ZIP"
+                    inputMode="numeric"
+                    style={{ width: 80, flex: 'none' }}
+                  />
+                  <input
+                    className="sx-inp"
+                    value={s.employees}
+                    onChange={(e) => editStaff(s.id, 'employees', e.target.value)}
+                    placeholder="# staff"
+                    inputMode="numeric"
+                    style={{ flex: 1, textAlign: 'right' }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          {staff.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '2px 0' }}>
+              No staff locations yet — add employee counts by city / ZIP.
+            </div>
+          ) : (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'space-between',
+                marginTop: 12,
+                paddingTop: 10,
+                borderTop: '1px solid var(--border-subtle)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: '.08em',
+                  textTransform: 'uppercase',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                Total staff
+              </span>
+              <span
+                style={{
+                  fontSize: 14,
+                  fontWeight: 800,
+                  color: 'var(--text-strong)',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {totalStaff} · {staff.length} location{staff.length === 1 ? '' : 's'}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-function SectionHeader({ label, onAdd }: { label: string; onAdd: () => void }) {
+function SectionHeader({
+  label,
+  onAdd,
+  addLabel = '+ Add on map',
+}: {
+  label: string;
+  onAdd: () => void;
+  addLabel?: string;
+}) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 }}>
       <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-strong)' }}>{label}</span>
@@ -244,7 +354,7 @@ function SectionHeader({ label, onAdd }: { label: string; onAdd: () => void }) {
           padding: '2px 4px',
         }}
       >
-        + Add on map
+        {addLabel}
       </button>
     </div>
   );

@@ -45,6 +45,16 @@ export interface Site {
   facts: Fact[];
 }
 
+/** Where current staff live — context for the staff-commute factor. */
+export interface StaffLocation {
+  id: string;
+  city: string;
+  state: string;
+  zip: string;
+  /** Employee count, stored as typed (digits only); parse for totals. */
+  employees: string;
+}
+
 export interface City {
   id: string;
   name: string;
@@ -55,6 +65,8 @@ export interface City {
   centers: Center[];
   airports: Airport[];
   sites: Site[];
+  /** Optional — older saved/exported states may omit it (treat as []). */
+  staff?: StaffLocation[];
 }
 
 export interface Layers {

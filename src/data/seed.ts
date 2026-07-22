@@ -1,8 +1,32 @@
-import type { City } from '../types';
+import type { City, StaffLocation } from '../types';
+
+/** Sample staff distribution (home city / ZIP + headcount) per metro. */
+const SEED_STAFF: Record<string, StaffLocation[]> = {
+  houston: [
+    { id: 'st1', city: 'Katy', state: 'TX', zip: '77494', employees: '14' },
+    { id: 'st2', city: 'Sugar Land', state: 'TX', zip: '77479', employees: '9' },
+    { id: 'st3', city: 'The Woodlands', state: 'TX', zip: '77380', employees: '7' },
+  ],
+  sanramon: [
+    { id: 'st1', city: 'San Ramon', state: 'CA', zip: '94583', employees: '12' },
+    { id: 'st2', city: 'Dublin', state: 'CA', zip: '94568', employees: '8' },
+    { id: 'st3', city: 'Walnut Creek', state: 'CA', zip: '94596', employees: '6' },
+  ],
+  sandiego: [
+    { id: 'st1', city: 'San Diego', state: 'CA', zip: '92127', employees: '10' },
+    { id: 'st2', city: 'La Jolla', state: 'CA', zip: '92037', employees: '7' },
+    { id: 'st3', city: 'Chula Vista', state: 'CA', zip: '91910', employees: '5' },
+  ],
+  losangeles: [
+    { id: 'st1', city: 'Santa Monica', state: 'CA', zip: '90401', employees: '11' },
+    { id: 'st2', city: 'Pasadena', state: 'CA', zip: '91101', employees: '8' },
+    { id: 'st3', city: 'Long Beach', state: 'CA', zip: '90802', employees: '6' },
+  ],
+};
 
 /** Fresh copy of the sample cities used as seed / reset data. */
 export function seedCities(): City[] {
-  return [
+  const cities: City[] = [
     {
       id: 'houston',
       name: 'Houston',
@@ -236,4 +260,8 @@ export function seedCities(): City[] {
       ],
     },
   ];
+  cities.forEach((c) => {
+    c.staff = SEED_STAFF[c.id] ?? [];
+  });
+  return cities;
 }

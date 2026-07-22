@@ -67,6 +67,10 @@ export interface Store {
   ) => void;
   removeRef: (kind: 'centers' | 'airports', id: string) => void;
 
+  addStaff: () => void;
+  editStaff: (id: string, field: 'city' | 'state' | 'zip' | 'employees', v: string) => void;
+  removeStaff: (id: string) => void;
+
   startAdd: (kind: AddKind) => void;
   cancelAdd: () => void;
 
@@ -211,6 +215,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [apply],
   );
 
+  const addStaff = useCallback(
+    () =>
+      apply((d) => {
+        const c = findCity(d);
+        (c.staff ??= []).push({ id: uid('st'), city: '', state: '', zip: '', employees: '' });
+      }),
+    [apply],
+  );
+  const editStaff = useCallback(
+    (id: string, field: 'city' | 'state' | 'zip' | 'employees', v: string) =>
+      apply((d) => {
+        const item = (findCity(d).staff ??= []).find((x) => x.id === id);
+        if (!item) return;
+        item[field] = field === 'employees' ? v.replace(/[^0-9]/g, '') : v;
+      }),
+    [apply],
+  );
+  const removeStaff = useCallback(
+    (id: string) =>
+      apply((d) => {
+        const c = findCity(d);
+        c.staff = (c.staff ?? []).filter((x) => x.id !== id);
+      }),
+    [apply],
+  );
+
   const startAdd = useCallback((kind: AddKind) => setAddMode(kind), []);
   const cancelAdd = useCallback(() => setAddMode(null), []);
 
@@ -288,6 +318,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           centers: [],
           airports: [],
           sites: [],
+          staff: [],
         });
         d.cityId = id;
         d.selectedSiteId = null;
@@ -339,6 +370,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setOfficeAddress,
     editRef,
     removeRef,
+    addStaff,
+    editStaff,
+    removeStaff,
     startAdd,
     cancelAdd,
     openCityModal,

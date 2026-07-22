@@ -30,6 +30,9 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
 - **Drive times.** Per-site vs. office drive-time comparison with a live Δ
   (green when closer than the office, crimson when farther). Entered by hand in
   this build — see [Production gaps](#production-gaps).
+- **Staff locations.** Record how many employees live where (city / state / ZIP +
+  headcount) per metro, with a live total — context for the staff-commute factor.
+  Managed in the Reference points panel.
 - **Persistence.** The full state autosaves to `localStorage`. Export downloads
   it as `site-selection-data.json`; Import restores from such a file; Reset data
   restores the seed sample.
