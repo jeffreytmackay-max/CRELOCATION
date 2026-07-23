@@ -49,7 +49,9 @@ export function AddCityModal() {
     >
       <div
         style={{
-          width: 400,
+          width: 'min(400px, calc(100vw - 28px))',
+          maxHeight: 'calc(100dvh - 32px)',
+          overflowY: 'auto',
           background: '#fff',
           borderRadius: 16,
           boxShadow: 'var(--shadow-lg)',

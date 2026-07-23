@@ -13,13 +13,14 @@ const eyebrow: React.CSSProperties = {
 
 /** Left rail: factor weighting sliders + ranked candidate list. */
 export function LeftRail() {
+  const { isMobile } = useApp();
   return (
     <aside
       className="sx-scroll"
       style={{
-        width: 362,
-        flex: 'none',
-        borderRight: '1px solid var(--border-subtle)',
+        width: isMobile ? '100%' : 362,
+        flex: isMobile ? 1 : 'none',
+        borderRight: isMobile ? 'none' : '1px solid var(--border-subtle)',
         overflowY: 'auto',
         background: 'var(--surface-page)',
       }}

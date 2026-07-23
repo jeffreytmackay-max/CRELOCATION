@@ -49,6 +49,10 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
 - **Persistence.** The full state autosaves to `localStorage`. Export downloads
   it as `site-selection-data.json`; Import restores from such a file; Reset data
   restores the seed sample.
+- **Responsive / iOS-ready.** The desktop three-column layout collapses on phones
+  (≤820px) into a **Weights / Map / Details** tab switch, with a full-screen
+  Reference-points sheet. Handles the iOS Safari `100dvh` toolbar, notch/home
+  safe-areas, 16px inputs (no focus-zoom), and touch targets.
 
 ## Tech stack
 

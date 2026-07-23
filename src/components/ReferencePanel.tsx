@@ -30,6 +30,7 @@ export function ReferencePanel() {
     editStaff,
     removeStaff,
     addDiscoveredRefs,
+    isMobile,
   } = useApp();
 
   const [busy, setBusy] = useState<'centers' | 'airports' | null>(null);
@@ -68,24 +69,30 @@ export function ReferencePanel() {
   return (
     <div
       id="panel"
-      style={{
-        position: 'fixed',
-        top: 132,
-        right: 410,
-        width: 344,
-        maxHeight: 'calc(100vh - 150px)',
-        zIndex: 950,
-      }}
+      style={
+        isMobile
+          ? { position: 'fixed', inset: 0, zIndex: 2100 }
+          : {
+              position: 'fixed',
+              top: 132,
+              right: 410,
+              width: 344,
+              maxHeight: 'calc(100vh - 150px)',
+              zIndex: 950,
+            }
+      }
     >
       <div
         className="sx-scroll"
         style={{
-          maxHeight: 'calc(100vh - 150px)',
+          maxHeight: isMobile ? '100%' : 'calc(100vh - 150px)',
+          height: isMobile ? '100%' : undefined,
           overflowY: 'auto',
           background: 'var(--surface-card)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 16,
-          boxShadow: 'var(--shadow-lg)',
+          border: isMobile ? 'none' : '1px solid var(--border-subtle)',
+          borderRadius: isMobile ? 0 : 16,
+          boxShadow: isMobile ? 'none' : 'var(--shadow-lg)',
+          paddingBottom: isMobile ? 'env(safe-area-inset-bottom)' : undefined,
         }}
       >
         {/* Sticky header */}

@@ -3,7 +3,7 @@ import { useApp } from '../store';
 
 /** Top bar: brand lockup + data actions. */
 export function Header() {
-  const { exportData, importData, resetData, resetWeights } = useApp();
+  const { exportData, importData, resetData, resetWeights, isMobile } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -24,10 +24,12 @@ export function Header() {
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 16,
-        height: 60,
+        gap: isMobile ? 8 : 16,
+        rowGap: 8,
+        minHeight: 60,
         flex: 'none',
-        padding: '0 22px',
+        flexWrap: isMobile ? 'wrap' : 'nowrap',
+        padding: isMobile ? '10px 14px' : '0 22px',
         borderBottom: '1px solid var(--border-subtle)',
         background: 'var(--surface-page)',
         zIndex: 1000,
@@ -75,7 +77,14 @@ export function Header() {
         </span>
       </div>
       <div style={{ flex: 1 }} />
-      <span style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 500 }}>
+      <span
+        style={{
+          fontSize: 11.5,
+          color: 'var(--text-muted)',
+          fontWeight: 500,
+          display: isMobile ? 'none' : 'inline',
+        }}
+      >
         Saved locally
       </span>
       <button className="sx-btn sx-btn-sm sx-btn-secondary" onClick={exportData}>

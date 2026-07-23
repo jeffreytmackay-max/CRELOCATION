@@ -2,16 +2,18 @@ import { useApp } from '../store';
 
 /** City-selector nav: analyze-city tabs, add city, and reference-points toggle. */
 export function CityNav() {
-  const { state, selectCity, openCityModal, togglePanel } = useApp();
+  const { state, selectCity, openCityModal, togglePanel, isMobile } = useApp();
 
   return (
     <nav
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 14,
+        gap: isMobile ? 8 : 14,
+        rowGap: 8,
         flex: 'none',
-        padding: '11px 22px',
+        flexWrap: 'wrap',
+        padding: isMobile ? '9px 14px' : '11px 22px',
         borderBottom: '1px solid var(--border-subtle)',
         background: 'var(--surface-subtle)',
         zIndex: 900,

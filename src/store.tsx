@@ -31,6 +31,8 @@ import type {
 let idCounter = 0;
 const uid = (p: string) => `${p}${++idCounter}${Date.now()}`;
 
+export type MobileView = 'weights' | 'map' | 'details';
+
 export interface Store {
   state: AppState;
   /** The currently analyzed city. */
@@ -45,8 +47,16 @@ export interface Store {
   addMode: AddKind | null;
   cityModalOpen: boolean;
 
+  /** True on narrow (phone) viewports — drives the responsive layout. */
+  isMobile: boolean;
+  /** Active pane on the mobile tab layout. */
+  mobileView: MobileView;
+  setMobileView: (v: MobileView) => void;
+
   registerMap: (map: LeafletMap) => void;
   onMapClick: (lat: number, lng: number) => void;
+  /** Tell Leaflet to recompute its size (e.g. after the map tab becomes visible). */
+  refreshMapSize: () => void;
   /** Zoom/pan the map to frame every candidate site (+ office when enabled). */
   fitAll: () => void;
 
@@ -107,6 +117,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [cityModalOpen, setCityModalOpen] = useState(false);
   const mapRef = useRef<LeafletMap | null>(null);
 
+  const [mobileView, setMobileView] = useState<MobileView>('weights');
+  const [isMobile, setIsMobile] = useState<boolean>(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 820px)').matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 820px)');
+    const on = () => setIsMobile(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+
   // Persist on every change.
   useEffect(() => {
     saveState(state);
@@ -135,6 +156,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const registerMap = useCallback((map: LeafletMap) => {
     mapRef.current = map;
+  }, []);
+  const refreshMapSize = useCallback(() => {
+    mapRef.current?.invalidateSize();
   }, []);
 
   const setWeight = useCallback(
@@ -307,7 +331,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [apply, city],
   );
 
-  const startAdd = useCallback((kind: AddKind) => setAddMode(kind), []);
+  const startAdd = useCallback(
+    (kind: AddKind) => {
+      setAddMode(kind);
+      // On mobile the full-screen panel would cover the map — reveal it.
+      if (isMobile) {
+        setMobileView('map');
+        apply((d) => void (d.panelOpen = false));
+      }
+    },
+    [isMobile, apply],
+  );
   const cancelAdd = useCallback(() => setAddMode(null), []);
 
   const onMapClick = useCallback(
@@ -422,8 +456,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     norm,
     addMode,
     cityModalOpen,
+    isMobile,
+    mobileView,
+    setMobileView,
     registerMap,
     onMapClick,
+    refreshMapSize,
     fitAll,
     editSite,
     setWeight,

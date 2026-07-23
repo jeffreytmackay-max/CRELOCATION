@@ -19,7 +19,7 @@ const sectionLabel: React.CSSProperties = {
 
 /** Right rail: full detail for the selected candidate. */
 export function RightRail() {
-  const { scored, selId, city, norm, getDrive, setDrive, editSite } = useApp();
+  const { scored, selId, city, norm, getDrive, setDrive, editSite, isMobile } = useApp();
   const s = scored.find((x) => x.id === selId);
 
   return (
@@ -27,9 +27,9 @@ export function RightRail() {
       id="rightRail"
       className="sx-scroll"
       style={{
-        width: 384,
-        flex: 'none',
-        borderLeft: '1px solid var(--border-subtle)',
+        width: isMobile ? '100%' : 384,
+        flex: isMobile ? 1 : 'none',
+        borderLeft: isMobile ? 'none' : '1px solid var(--border-subtle)',
         overflowY: 'auto',
         background: 'var(--surface-subtle)',
       }}
