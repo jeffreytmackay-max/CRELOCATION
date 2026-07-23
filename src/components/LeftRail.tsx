@@ -61,7 +61,7 @@ function FactorWeighting() {
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {FACTORS.map((f) => {
-          const v = state.weights[f.key];
+          const v = state.weights[f.key] ?? 0;
           const pct = Math.round(norm[f.key] * 100);
           return (
             <div key={f.key}>

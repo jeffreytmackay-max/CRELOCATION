@@ -14,11 +14,12 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
 
 ## Features
 
-- **Live weighted scoring.** Five factor sliders (transplant centers, airport
-  access, staff commute, real-estate supply, climate/regulatory risk) write raw
-  0–100 weights that are normalized to 100%. Composite =
+- **Live weighted scoring.** Six factor sliders (transplant centers, airport
+  access, staff commute, real-estate supply, climate/regulatory risk, crime &
+  safety) write raw 0–100 weights that are normalized to 100%. Composite =
   Σ(rawFactorScore × normalizedWeight). Changing any slider re-scores, re-ranks,
-  and re-sizes/re-colors the map pins instantly.
+  and re-sizes/re-colors the map pins instantly. (Sites saved before a factor
+  existed treat it as a neutral score until set.)
 - **Interactive map.** Pannable OpenStreetMap basemap with score-scaled candidate
   pins, transplant-center and airport markers, and an optional office diamond.
   Click a pin or a ranking row to select a site. **Fit all sites** zooms/pans to
@@ -108,7 +109,7 @@ src/
   store.tsx             # AppProvider — state, derived scoring, all actions
   types.ts              # domain model
   data/
-    factors.ts          # the five weighting factors + defaults + icons
+    factors.ts          # the six weighting factors + defaults + icons
     seed.ts             # sample cities (Houston, San Ramon, San Diego, LA)
   lib/
     scoring.ts          # normalize / composite / scoreCity / scoreColor

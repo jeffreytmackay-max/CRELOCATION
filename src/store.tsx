@@ -19,14 +19,7 @@ import {
   parseImport,
   saveState,
 } from './lib/storage';
-import type {
-  AddKind,
-  AppState,
-  City,
-  FactorKey,
-  ScoredSite,
-  Scores,
-} from './types';
+import type { AddKind, AppState, City, FactorKey, ScoredSite } from './types';
 
 let idCounter = 0;
 const uid = (p: string) => `${p}${++idCounter}${Date.now()}`;
@@ -42,7 +35,7 @@ export interface Store {
   /** Effective selected id (falls back to rank 1). */
   selId: string;
   /** Weights normalized to sum 1. */
-  norm: Scores;
+  norm: Record<FactorKey, number>;
   /** What the user is placing on the map, if anything. */
   addMode: AddKind | null;
   cityModalOpen: boolean;
@@ -231,7 +224,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           short,
           lat,
           lng,
-          scores: { hospital: 70, airport: 70, commute: 70, space: 70, risk: 70 },
+          scores: { hospital: 70, airport: 70, commute: 70, space: 70, risk: 70, crime: 70 },
           note: 'Added by search — adjust its factor scores and facts.',
           facts: [
             ['Asking rent', '—'],
@@ -390,7 +383,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             short: nm || 'New site',
             lat,
             lng,
-            scores: { hospital: 70, airport: 70, commute: 70, space: 70, risk: 70 },
+            scores: { hospital: 70, airport: 70, commute: 70, space: 70, risk: 70, crime: 70 },
             note: 'New candidate site — adjust its factor scores and facts.',
             facts: [
               ['Asking rent', '—'],
@@ -442,7 +435,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             address: '',
             lat: clat,
             lng: clng,
-            scores: { hospital: 70, airport: 70, commute: 70, space: 70, risk: 70 },
+            scores: { hospital: 70, airport: 70, commute: 70, space: 70, risk: 70, crime: 70 },
             note: 'Your current office — scored on the same factors as a benchmark for the candidate sites.',
             facts: [['Status', 'Current office']],
           },

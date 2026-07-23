@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FACTORS } from '../data/factors';
+import { scoreOf } from '../lib/scoring';
 import {
   DEPARTURE_OPTIONS,
   departureTimestamp,
@@ -151,9 +152,9 @@ export function RightRail() {
             {FACTORS.map((f) => ({
               label: f.label,
               color: f.color,
-              raw: s.scores[f.key] || 0,
+              raw: scoreOf(s.scores, f.key),
               wPct: Math.round(norm[f.key] * 100),
-              contrib: (s.scores[f.key] || 0) * norm[f.key],
+              contrib: scoreOf(s.scores, f.key) * norm[f.key],
             }))
               .sort((a, b) => b.contrib - a.contrib)
               .map((b) => (

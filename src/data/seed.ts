@@ -56,6 +56,22 @@ const SEED_AREAS: Record<string, Record<string, string>> = {
   },
 };
 
+/** Sample crime & safety score per candidate site (higher = safer). */
+const SEED_CRIME: Record<string, Record<string, number>> = {
+  houston: { tmc: 62, energy: 70, woodlands: 88, sugarland: 84, uptown: 66 },
+  sanramon: { bishopranch: 86, dublin: 82, walnutcreek: 80, hacienda: 82, emeryville: 58 },
+  sandiego: { torreypines: 82, sorrento: 78, downtown: 60, kearnymesa: 72, carlsbad: 84 },
+  losangeles: { westwood: 74, elsegundo: 76, pasadena: 70, culvercity: 68, cedars: 72 },
+};
+
+/** Sample crime & safety score for each city's current office. */
+const SEED_OFFICE_CRIME: Record<string, number> = {
+  houston: 68,
+  sanramon: 84,
+  sandiego: 74,
+  losangeles: 66,
+};
+
 /** Fresh copy of the sample cities used as seed / reset data. */
 export function seedCities(): City[] {
   const cities: City[] = [
@@ -295,9 +311,12 @@ export function seedCities(): City[] {
   cities.forEach((c) => {
     c.staff = SEED_STAFF[c.id] ?? [];
     const areas = SEED_AREAS[c.id] ?? {};
+    const crime = SEED_CRIME[c.id] ?? {};
     c.sites.forEach((s) => {
       if (areas[s.id]) s.area = areas[s.id];
+      if (crime[s.id] != null) s.scores.crime = crime[s.id];
     });
+    if (SEED_OFFICE_CRIME[c.id] != null) c.office.scores.crime = SEED_OFFICE_CRIME[c.id];
   });
   return cities;
 }

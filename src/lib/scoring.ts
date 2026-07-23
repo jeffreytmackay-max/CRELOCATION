@@ -1,19 +1,27 @@
 import { FACTORS } from '../data/factors';
-import type { City, ScoredSite, Scores, Site } from '../types';
+import type { City, FactorKey, ScoredSite, Scores, Site } from '../types';
+
+/** Score used when a site is missing a factor (e.g. crime on pre-existing data). */
+export const NEUTRAL_SCORE = 70;
+
+/** A factor's raw score, defaulting missing factors to a neutral value. */
+export function scoreOf(scores: Scores, key: FactorKey): number {
+  return scores[key] ?? NEUTRAL_SCORE;
+}
 
 /** Weights normalized so they sum to 1. Falls back to an even split. */
-export function normalize(weights: Scores): Scores {
-  const total = FACTORS.reduce((a, f) => a + (weights[f.key] || 0), 0);
-  const n = {} as Scores;
+export function normalize(weights: Scores): Record<FactorKey, number> {
+  const total = FACTORS.reduce((a, f) => a + (weights[f.key] ?? 0), 0);
+  const n = {} as Record<FactorKey, number>;
   FACTORS.forEach((f) => {
-    n[f.key] = total > 0 ? (weights[f.key] || 0) / total : 1 / FACTORS.length;
+    n[f.key] = total > 0 ? (weights[f.key] ?? 0) / total : 1 / FACTORS.length;
   });
   return n;
 }
 
 /** Composite = Σ(rawScore × normalizedWeight). */
-export function composite(scores: Scores, normWeights: Scores): number {
-  return FACTORS.reduce((a, f) => a + (scores[f.key] || 0) * normWeights[f.key], 0);
+export function composite(scores: Scores, normWeights: Record<FactorKey, number>): number {
+  return FACTORS.reduce((a, f) => a + scoreOf(scores, f.key) * normWeights[f.key], 0);
 }
 
 /**

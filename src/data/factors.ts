@@ -46,6 +46,13 @@ export const FACTORS: FactorDef[] = [
     color: '#e0996a',
     desc: 'Flood / seismic exposure & local regulatory load',
   },
+  {
+    key: 'crime',
+    short: 'Crime & safety',
+    label: 'Crime & safety',
+    color: '#740223',
+    desc: 'Local crime rates & personal safety for staff and assets',
+  },
 ];
 
 export const DEFAULT_WEIGHTS: Scores = {
@@ -54,6 +61,7 @@ export const DEFAULT_WEIGHTS: Scores = {
   commute: 55,
   space: 45,
   risk: 60,
+  crime: 50,
 };
 
 /** SVG path data for each factor icon (24×24 viewBox, 2px stroke). */
@@ -67,4 +75,9 @@ export const FACTOR_ICON_PATHS: Record<FactorKey, string[]> = {
     'M4 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M4 22h14M8 6h.01M8 10h.01M8 14h.01M12 6h.01M12 10h.01M12 14h.01',
   ],
   risk: ['M12 2 20 6v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z', 'M12 8v4', 'M12 16h.01'],
+  crime: [
+    'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z',
+    'M12 9v4',
+    'M12 17h.01',
+  ],
 };

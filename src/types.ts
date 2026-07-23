@@ -1,9 +1,20 @@
 /** Domain model for the Site Selection Explorer. */
 
-export type FactorKey = 'hospital' | 'airport' | 'commute' | 'space' | 'risk';
+export type FactorKey = 'hospital' | 'airport' | 'commute' | 'space' | 'risk' | 'crime';
 
-/** Raw 0–100 scores keyed by factor. */
-export type Scores = Record<FactorKey, number>;
+/**
+ * Raw 0–100 scores keyed by factor (higher is better).
+ * The five original factors are always present; `crime` was added later, so
+ * sites saved/exported before it may omit it — treated as a neutral score.
+ */
+export type Scores = {
+  hospital: number;
+  airport: number;
+  commute: number;
+  space: number;
+  risk: number;
+  crime?: number;
+};
 
 /** A label/value fact pair shown in the "Site facts" list. */
 export type Fact = [label: string, value: string];
