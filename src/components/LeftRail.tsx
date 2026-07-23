@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { FACTORS } from '../data/factors';
+import { geocode, type GeocodeResult } from '../lib/geocode';
 import { scoreColor } from '../lib/scoring';
 import { useApp } from '../store';
 import { FactorIcon } from './FactorIcon';
@@ -142,9 +144,10 @@ function Ranking() {
         <span style={eyebrow}>Candidate locations</span>
         <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{scored.length} sites</span>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
         {city.name}, {city.state || ''} — ranked by weighted score
       </div>
+      <SearchAddSite />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         {scored.map((s) => {
           const isSel = s.id === selId;
@@ -272,6 +275,124 @@ function Ranking() {
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+/** Search an address / city (geocode) and drop a candidate site there. */
+function SearchAddSite() {
+  const { addSiteAt, startAdd } = useApp();
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState<GeocodeResult[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function search() {
+    const query = q.trim();
+    if (!query) return;
+    setBusy(true);
+    setError(null);
+    setResults(null);
+    try {
+      const found = await geocode(query);
+      setResults(found);
+      if (!found.length) setError('No matches — try a more specific address.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Search failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function pick(r: GeocodeResult) {
+    addSiteAt(r.name, r.lat, r.lng);
+    setQ('');
+    setResults(null);
+    setError(null);
+  }
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: 'flex', gap: 7 }}>
+        <input
+          className="sx-inp"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') search();
+          }}
+          placeholder="Search address or city to add a site…"
+          aria-label="Search an address or city to add a candidate site"
+          style={{ flex: 1 }}
+        />
+        <button
+          className="sx-btn sx-btn-sm sx-btn-primary"
+          onClick={search}
+          disabled={busy}
+          style={{ flex: 'none', opacity: busy ? 0.7 : 1 }}
+        >
+          {busy ? '…' : 'Search'}
+        </button>
+      </div>
+
+      {results && results.length > 0 && (
+        <div
+          style={{
+            marginTop: 7,
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 10,
+            overflow: 'hidden',
+            background: '#fff',
+          }}
+        >
+          {results.map((r, i) => (
+            <button
+              key={i}
+              onClick={() => pick(r)}
+              style={{
+                display: 'block',
+                width: '100%',
+                textAlign: 'left',
+                padding: '9px 11px',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 12.5,
+                color: 'var(--text-strong)',
+                background: '#fff',
+                border: 'none',
+                borderTop: i ? '1px solid var(--border-subtle)' : 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {r.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ marginTop: 6, fontSize: 10.5, lineHeight: 1.4 }}>
+        {error ? (
+          <span style={{ color: 'var(--tmdx-crimson)' }}>{error}</span>
+        ) : (
+          <span style={{ color: 'var(--text-muted)' }}>
+            Reach surrounding suburbs by name, or{' '}
+            <button
+              onClick={() => startAdd('site')}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                font: 'inherit',
+                fontWeight: 700,
+                color: 'var(--brand-primary)',
+                cursor: 'pointer',
+              }}
+            >
+              drop one on the map
+            </button>
+            .
+          </span>
+        )}
       </div>
     </div>
   );

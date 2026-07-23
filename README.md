@@ -27,6 +27,10 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   anywhere in the metro, not just the core city. Each candidate carries an
   editable **city / area** label (e.g. "The Woodlands, TX") shown in the ranking
   and detail panel, so submarkets in surrounding municipalities read clearly.
+- **Search-to-add (geocoding).** Type an address or city under Candidate
+  locations to geocode it (Google Geocoding API) and drop a scored candidate site
+  there — the quickest way to reach surrounding suburbs by name. Enable the
+  **Geocoding API** on the key.
 - **Office benchmark.** Enable the current office to inject it into the ranked
   list as a "Current" pseudo-site scored on the same factors.
 - **Add on map.** Drop new candidate sites, transplant centers, airports, or
@@ -78,12 +82,12 @@ npm run preview  # preview the production build
 
 | Variable              | Where            | Purpose                                                        |
 | --------------------- | ---------------- | -------------------------------------------------------------- |
-| `GOOGLE_MAPS_API_KEY` | server-side only | Drive-time auto-fill (`/api/drivetimes`, Distance Matrix API) and Find-nearby discovery (`/api/places`, Places API). Never exposed to the browser. |
+| `GOOGLE_MAPS_API_KEY` | server-side only | Drive-time auto-fill (`/api/drivetimes`, Distance Matrix API), Find-nearby discovery (`/api/places`, Places API), and search-to-add (`/api/geocode`, Geocoding API). Never exposed to the browser. |
 
 **Vercel:** Project → Settings → Environment Variables → add `GOOGLE_MAPS_API_KEY`
 (all environments) → redeploy. In the [Google Cloud console](https://console.cloud.google.com/),
-enable **both** the **Distance Matrix API** and the **Places API** on the key,
-and restrict it.
+enable the **Distance Matrix API**, **Places API**, and **Geocoding API** on the
+key, and restrict it.
 
 **Local:** copy `.env.example` to `.env`, fill in the key, and run `vercel dev`
 (the `/api` functions do not run under plain `vite dev`). See `.env.example`.
@@ -97,6 +101,7 @@ return a clear "add a key" message, and everything else is unaffected.
 api/
   drivetimes.js         # Vercel function: Google Distance Matrix proxy (traffic)
   places.js             # Vercel function: Google Places proxy (find nearby refs)
+  geocode.js            # Vercel function: Google Geocoding proxy (search-to-add)
 src/
   main.tsx              # entry
   App.tsx               # layout: header, nav, three columns, overlays
@@ -110,6 +115,7 @@ src/
     storage.ts          # load / save / export / import
     drivetimes.ts       # client for /api/drivetimes + departure-time presets
     places.ts           # client for /api/places (find nearby)
+    geocode.ts          # client for /api/geocode (search-to-add)
   components/
     Header.tsx          # brand + data actions
     CityNav.tsx         # city tabs + reference-points toggle
@@ -151,8 +157,9 @@ production:
 1. **Drive times** — ✅ done. Traffic-aware auto-fill via the Google Distance
    Matrix API (`/api/drivetimes`); manual override still supported. Still to do:
    drive **distances** (miles) alongside times, and caching to limit API calls.
-2. **Geocoding** typed addresses → coordinates (replace, or complement,
-   click-to-place).
+2. **Geocoding** — ✅ done. Search-to-add geocodes typed addresses via the Google
+   Geocoding API (`/api/geocode`); click-to-place is still available too.
+   Find-nearby (`/api/places`) also auto-discovers transplant centers & airports.
 3. **Backend persistence** + multi-user projects/sharing (replace
    `localStorage`/JSON).
 4. Marker **drag-to-reposition**, undo, and validation.

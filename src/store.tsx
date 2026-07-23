@@ -62,6 +62,8 @@ export interface Store {
 
   /** Edit a field on a candidate site in the current city (ignores the office pseudo-site). */
   editSite: (id: string, field: 'area', v: string) => void;
+  /** Create a candidate site at a location (from search), select it, and pan to it. */
+  addSiteAt: (name: string, lat: number, lng: number) => void;
 
   setWeight: (key: FactorKey, val: number) => void;
   resetWeights: () => void;
@@ -215,6 +217,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (s) s[field] = v;
       }),
     [apply],
+  );
+
+  const addSiteAt = useCallback(
+    (name: string, lat: number, lng: number) => {
+      const id = uid('s');
+      // Use the first segment (e.g. "Conroe") as the short map label.
+      const short = name.split(',')[0].trim() || name;
+      apply((d) => {
+        findCity(d).sites.push({
+          id,
+          name: short,
+          short,
+          lat,
+          lng,
+          scores: { hospital: 70, airport: 70, commute: 70, space: 70, risk: 70 },
+          note: 'Added by search — adjust its factor scores and facts.',
+          facts: [
+            ['Asking rent', '—'],
+            ['Space available', '—'],
+            ['Nearest transplant ctr', '—'],
+          ],
+          area: name,
+        });
+        d.selectedSiteId = id;
+      });
+      if (mapRef.current) mapRef.current.setView([lat, lng], Math.max(mapRef.current.getZoom() ?? 11, 11));
+      if (isMobile) setMobileView('map');
+    },
+    [apply, isMobile],
   );
 
   const getDrive = useCallback(
@@ -464,6 +495,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     refreshMapSize,
     fitAll,
     editSite,
+    addSiteAt,
     setWeight,
     resetWeights,
     selectCity,
