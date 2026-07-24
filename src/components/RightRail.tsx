@@ -18,9 +18,31 @@ const sectionLabel: React.CSSProperties = {
   color: 'var(--text-muted)',
 };
 
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-strong)' }}>{children}</span>
+  );
+}
+
 /** Right rail: full detail for the selected candidate. */
 export function RightRail() {
-  const { scored, selId, city, norm, getDrive, setDrive, editSite, isMobile } = useApp();
+  const {
+    scored,
+    selId,
+    city,
+    norm,
+    getDrive,
+    setDrive,
+    editSite,
+    isMobile,
+    selectSite,
+    setSiteScore,
+    setSiteText,
+    setFact,
+    addFact,
+    removeFact,
+  } = useApp();
+  const [editing, setEditing] = useState(false);
   const s = scored.find((x) => x.id === selId);
 
   return (
@@ -64,45 +86,106 @@ export function RightRail() {
             >
               {city.state || ''}
             </span>
+            <div style={{ flex: 1 }} />
+            <button
+              className={`sx-btn sx-btn-sm ${editing ? 'sx-btn-primary' : 'sx-btn-secondary'}`}
+              onClick={() => {
+                // Pin the current site so re-scoring can't make the panel follow rank #1.
+                if (!editing) selectSite(s.id);
+                setEditing((e) => !e);
+              }}
+            >
+              {editing ? 'Done' : 'Edit'}
+            </button>
           </div>
 
-          <h2
-            style={{
-              margin: '0 0 2px',
-              fontSize: 28,
-              fontWeight: 300,
-              letterSpacing: '-0.02em',
-              color: 'var(--text-strong)',
-              lineHeight: 1.1,
-            }}
-          >
-            {s.name}
-          </h2>
-          {s.isOffice ? (
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginTop: 4 }}>
-              {city.name}, {city.state || ''}
+          {editing && !s.isOffice ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <FieldLabel>Site name</FieldLabel>
+              <input
+                className="sx-inp"
+                value={s.name}
+                onChange={(e) => setSiteText(s.id, 'name', e.target.value)}
+                placeholder="Site name"
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <FieldLabel>Map label</FieldLabel>
+                  <input
+                    className="sx-inp"
+                    value={s.short}
+                    onChange={(e) => setSiteText(s.id, 'short', e.target.value)}
+                    placeholder="Short label"
+                    style={{ marginTop: 4 }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <FieldLabel>City / area</FieldLabel>
+                  <input
+                    className="sx-inp"
+                    value={s.area ?? ''}
+                    onChange={(e) => editSite(s.id, 'area', e.target.value)}
+                    placeholder={`${city.name}, ${city.state || ''}`}
+                    style={{ marginTop: 4 }}
+                  />
+                </div>
+              </div>
             </div>
           ) : (
-            <input
-              className="sx-inline-edit"
-              value={s.area ?? ''}
-              placeholder={`${city.name}, ${city.state || ''}`}
-              onChange={(e) => editSite(s.id, 'area', e.target.value)}
-              aria-label="Site city or area"
-              title="City / area — click to edit"
-              style={{ marginTop: 4 }}
-            />
+            <>
+              <h2
+                style={{
+                  margin: '0 0 2px',
+                  fontSize: 28,
+                  fontWeight: 300,
+                  letterSpacing: '-0.02em',
+                  color: 'var(--text-strong)',
+                  lineHeight: 1.1,
+                }}
+              >
+                {s.name}
+              </h2>
+              {s.isOffice ? (
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginTop: 4 }}>
+                  {city.name}, {city.state || ''}
+                </div>
+              ) : (
+                <input
+                  className="sx-inline-edit"
+                  value={s.area ?? ''}
+                  placeholder={`${city.name}, ${city.state || ''}`}
+                  onChange={(e) => editSite(s.id, 'area', e.target.value)}
+                  aria-label="Site city or area"
+                  title="City / area — click to edit"
+                  style={{ marginTop: 4 }}
+                />
+              )}
+            </>
           )}
-          <p
-            style={{
-              margin: '12px 0 0',
-              fontSize: 13,
-              lineHeight: 1.55,
-              color: 'var(--text-body)',
-            }}
-          >
-            {s.note || ''}
-          </p>
+          {editing ? (
+            <div style={{ marginTop: 12 }}>
+              <FieldLabel>Notes</FieldLabel>
+              <textarea
+                className="sx-inp"
+                value={s.note ?? ''}
+                onChange={(e) => setSiteText(s.id, 'note', e.target.value)}
+                placeholder="Notes about this location…"
+                rows={3}
+                style={{ marginTop: 4, resize: 'vertical', lineHeight: 1.5 }}
+              />
+            </div>
+          ) : (
+            <p
+              style={{
+                margin: '12px 0 0',
+                fontSize: 13,
+                lineHeight: 1.55,
+                color: 'var(--text-body)',
+              }}
+            >
+              {s.note || ''}
+            </p>
+          )}
 
           {/* Score card */}
           <div
@@ -146,7 +229,39 @@ export function RightRail() {
             </div>
           </div>
 
-          {/* Factor breakdown */}
+          {/* Factor scores — editable */}
+          {editing && (
+            <>
+              <div style={{ ...sectionLabel, marginBottom: 4 }}>Factor scores</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
+                0–100, higher is better. The weighted score updates live.
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {FACTORS.map((f) => (
+                  <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                    <span style={{ width: 9, height: 9, borderRadius: '50%', flex: 'none', background: f.color }} />
+                    <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: 'var(--text-strong)' }}>
+                      {f.label}
+                    </span>
+                    <input
+                      className="sx-inp"
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={scoreOf(s.scores, f.key)}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => setSiteScore(s.id, f.key, e.target.valueAsNumber)}
+                      style={{ width: 66, flex: 'none', textAlign: 'center' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Factor breakdown — read-only */}
+          {!editing && (
+          <>
           <div style={{ ...sectionLabel, marginBottom: 14 }}>Factor breakdown</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {FACTORS.map((f) => ({
@@ -226,36 +341,101 @@ export function RightRail() {
                 </div>
               ))}
           </div>
+          </>
+          )}
 
           {/* Site facts */}
           <div style={{ ...sectionLabel, margin: '26px 0 12px' }}>Site facts</div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {(s.facts || []).map((r, i) => (
-              <div
-                key={i}
+          {editing ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {(s.facts || []).map((r, i) => (
+                <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+                  <input
+                    className="sx-inp"
+                    value={r[0]}
+                    onChange={(e) => setFact(s.id, i, 0, e.target.value)}
+                    placeholder="Label"
+                    style={{ flex: 1 }}
+                  />
+                  <input
+                    className="sx-inp"
+                    value={r[1]}
+                    onChange={(e) => setFact(s.id, i, 1, e.target.value)}
+                    placeholder="Value"
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    onClick={() => removeFact(s.id, i)}
+                    title="Remove fact"
+                    style={{
+                      width: 26,
+                      height: 26,
+                      flex: 'none',
+                      border: '1px solid var(--border-default)',
+                      borderRadius: 7,
+                      background: '#fff',
+                      cursor: 'pointer',
+                      color: 'var(--text-muted)',
+                      fontSize: 15,
+                      lineHeight: 1,
+                    }}
+                  >
+                    −
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => addFact(s.id)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                  padding: '9px 0',
-                  borderBottom: '1px solid var(--border-subtle)',
+                  alignSelf: 'flex-start',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: 'var(--brand-primary)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px 2px',
                 }}
               >
-                <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{r[0]}</span>
-                <span
-                  style={{
-                    fontSize: 12.5,
-                    fontWeight: 700,
-                    color: 'var(--text-strong)',
-                    textAlign: 'right',
-                  }}
-                >
-                  {r[1]}
-                </span>
-              </div>
-            ))}
-          </div>
+                + Add fact
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {(s.facts || []).length === 0 ? (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '4px 0' }}>
+                  No facts yet — use Edit to add asking rent, space, etc.
+                </div>
+              ) : (
+                (s.facts || []).map((r, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      padding: '9px 0',
+                      borderBottom: '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{r[0]}</span>
+                    <span
+                      style={{
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        color: 'var(--text-strong)',
+                        textAlign: 'right',
+                      }}
+                    >
+                      {r[1]}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
 
           <DriveTimes
             selId={selId}

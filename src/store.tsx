@@ -58,6 +58,13 @@ export interface Store {
   /** Create a candidate site at a location (from search), select it, and pan to it. */
   addSiteAt: (name: string, lat: number, lng: number) => void;
 
+  /* ---- Per-site editing (works for a real site or the "__office" benchmark) ---- */
+  setSiteScore: (id: string, key: FactorKey, val: number) => void;
+  setSiteText: (id: string, field: 'name' | 'short' | 'note', v: string) => void;
+  setFact: (id: string, index: number, which: 0 | 1, v: string) => void;
+  addFact: (id: string) => void;
+  removeFact: (id: string, index: number) => void;
+
   setWeight: (key: FactorKey, val: number) => void;
   resetWeights: () => void;
   selectCity: (id: string) => void;
@@ -239,6 +246,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (isMobile) setMobileView('map');
     },
     [apply, isMobile],
+  );
+
+  /** The editable target for an id: a real site, or the office for "__office". */
+  const siteTarget = (d: AppState, id: string) =>
+    id === '__office' ? findCity(d).office : findCity(d).sites.find((s) => s.id === id);
+
+  const setSiteScore = useCallback(
+    (id: string, key: FactorKey, val: number) =>
+      apply((d) => {
+        const t = siteTarget(d, id);
+        if (t) t.scores[key] = Math.max(0, Math.min(100, Math.round(val || 0)));
+      }),
+    [apply],
+  );
+  const setSiteText = useCallback(
+    (id: string, field: 'name' | 'short' | 'note', v: string) =>
+      apply((d) => {
+        const t = siteTarget(d, id);
+        if (!t) return;
+        if (field === 'note') t.note = v;
+        else if ('name' in t) t[field] = v; // name/short only exist on real sites
+      }),
+    [apply],
+  );
+  const setFact = useCallback(
+    (id: string, index: number, which: 0 | 1, v: string) =>
+      apply((d) => {
+        const t = siteTarget(d, id);
+        if (t && t.facts[index]) t.facts[index][which] = v;
+      }),
+    [apply],
+  );
+  const addFact = useCallback(
+    (id: string) =>
+      apply((d) => {
+        const t = siteTarget(d, id);
+        if (t) t.facts.push(['', '']);
+      }),
+    [apply],
+  );
+  const removeFact = useCallback(
+    (id: string, index: number) =>
+      apply((d) => {
+        const t = siteTarget(d, id);
+        if (t) t.facts.splice(index, 1);
+      }),
+    [apply],
   );
 
   const getDrive = useCallback(
@@ -489,6 +543,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fitAll,
     editSite,
     addSiteAt,
+    setSiteScore,
+    setSiteText,
+    setFact,
+    addFact,
+    removeFact,
     setWeight,
     resetWeights,
     selectCity,

@@ -32,6 +32,10 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   locations to geocode it (Google Geocoding API) and drop a scored candidate site
   there — the quickest way to reach surrounding suburbs by name. Enable the
   **Geocoding API** on the key.
+- **Edit any site.** An **Edit** toggle in the detail panel lets you set each
+  factor score (0–100, re-scores live) and edit the name, area, notes, and facts
+  (asking rent, available space, …) — for candidate sites and the office. This is
+  how you put in real figures, since there's no live real-estate data feed.
 - **Office benchmark.** Enable the current office to inject it into the ranked
   list as a "Current" pseudo-site scored on the same factors.
 - **Add on map.** Drop new candidate sites, transplant centers, airports, or
@@ -164,7 +168,11 @@ production:
 3. **Backend persistence** + multi-user projects/sharing (replace
    `localStorage`/JSON).
 4. Marker **drag-to-reposition**, undo, and validation.
-5. Editable **factor scores** for user-added sites (currently seeded neutral 70).
+5. Editable **factor scores & facts** — ✅ done. The detail panel has an **Edit**
+   mode to set each factor score (0–100, live re-score) and edit the site name,
+   area, notes, and facts (asking rent, space, …) — for candidate sites and the
+   office benchmark. Real-estate figures are still entered by hand (no CRE data
+   feed); a commercial provider (CoStar, Crexi, …) could auto-fill them.
 
 ## Attribution
 
