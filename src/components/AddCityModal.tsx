@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useApp } from '../store';
 
 const fieldLabel: React.CSSProperties = {
@@ -14,6 +14,8 @@ export function AddCityModal() {
   const [st, setSt] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
+  const [error, setError] = useState('');
+  const nameRef = useRef<HTMLInputElement>(null);
 
   if (!cityModalOpen) return null;
 
@@ -22,6 +24,7 @@ export function AddCityModal() {
     setSt('');
     setLat('');
     setLng('');
+    setError('');
   }
   function cancel() {
     reset();
@@ -29,7 +32,11 @@ export function AddCityModal() {
   }
   function confirm() {
     const nm = name.trim();
-    if (!nm) return;
+    if (!nm) {
+      setError('Enter a city or metro name to continue.');
+      nameRef.current?.focus();
+      return;
+    }
     // lat/lng optional — NaN tells the store to fall back to the current map center.
     addCity(nm, st.trim().toUpperCase(), parseFloat(lat), parseFloat(lng));
     reset();
@@ -40,11 +47,12 @@ export function AddCityModal() {
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 2000,
+        zIndex: 2200,
         background: 'rgba(48,47,50,.4)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        padding: 14,
       }}
     >
       <div
@@ -77,13 +85,28 @@ export function AddCityModal() {
 
         <label style={fieldLabel}>City / metro name</label>
         <input
+          ref={nameRef}
           className="sx-inp"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (error) setError('');
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') confirm();
+          }}
           placeholder="e.g. Nashville"
           autoFocus
-          style={{ margin: '5px 0 14px' }}
+          style={{
+            margin: '5px 0 6px',
+            borderColor: error ? 'var(--tmdx-crimson)' : undefined,
+          }}
         />
+        {error ? (
+          <div style={{ fontSize: 11.5, color: 'var(--tmdx-crimson)', margin: '0 0 12px' }}>{error}</div>
+        ) : (
+          <div style={{ height: 8 }} />
+        )}
 
         <label style={fieldLabel}>State</label>
         <input
