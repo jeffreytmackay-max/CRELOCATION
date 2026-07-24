@@ -41,6 +41,7 @@ export function ReferencePanel() {
   const [plotStatus, setPlotStatus] = useState<{ text: string; err: boolean } | null>(null);
 
   async function plotStaff() {
+    if (!city) return;
     const rows = (city.staff ?? []).filter((s) => s.city.trim() || s.zip.trim());
     if (!rows.length) {
       setPlotStatus({ text: 'Add a city or ZIP to a staff row first.', err: true });
@@ -78,6 +79,7 @@ export function ReferencePanel() {
   }
 
   async function discover(kind: 'centers' | 'airports') {
+    if (!city) return;
     setBusy(kind);
     setStatus(null);
     try {
@@ -102,7 +104,7 @@ export function ReferencePanel() {
     }
   }
 
-  if (!state.panelOpen) return null;
+  if (!state.panelOpen || !city) return null;
   const Ly = state.layers;
   const staff = city.staff ?? [];
   const totalStaff = staff.reduce((a, s) => a + (parseInt(s.employees, 10) || 0), 0);

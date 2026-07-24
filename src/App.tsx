@@ -17,17 +17,71 @@ export default function App() {
 }
 
 function Shell() {
-  const { isMobile } = useApp();
+  const { isMobile, state } = useApp();
+  const hasCities = state.cities.length > 0;
   return (
     <>
       <div className="app-shell">
         <Header />
         <CityNav />
-        {isMobile ? <MobileBody /> : <DesktopBody />}
+        {!hasCities ? <EmptyState /> : isMobile ? <MobileBody /> : <DesktopBody />}
       </div>
       <ReferencePanel />
       <AddCityModal />
     </>
+  );
+}
+
+/** Shown when there are no cities — prompts the user to add their first metro. */
+function EmptyState() {
+  const { openCityModal } = useApp();
+  return (
+    <div
+      style={{
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+        background: 'var(--surface-subtle)',
+      }}
+    >
+      <div style={{ maxWidth: 420, textAlign: 'center' }}>
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            margin: '0 auto 18px',
+            borderRadius: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            background: 'var(--tmdx-crimson)',
+          }}
+        >
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+        </div>
+        <h2 style={{ margin: '0 0 8px', fontSize: 24, fontWeight: 300, letterSpacing: '-0.02em', color: 'var(--text-strong)' }}>
+          Start from a blank slate
+        </h2>
+        <p style={{ margin: '0 0 20px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-muted)', textWrap: 'pretty' }}>
+          No cities yet. Add a metro to begin, then drop candidate sites, transplant centers,
+          airports, your office, and staff locations — and rank them on a live weighted score.
+        </p>
+        <button
+          className="sx-btn sx-btn-sm sx-btn-primary"
+          style={{ fontSize: 13, padding: '9px 18px' }}
+          onClick={openCityModal}
+        >
+          + Add your first city
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -44,6 +44,7 @@ export function RightRail() {
   } = useApp();
   const [editing, setEditing] = useState(false);
   const s = scored.find((x) => x.id === selId);
+  if (!city) return null;
 
   return (
     <aside
@@ -478,10 +479,12 @@ function DriveTimes({
   setDrive: (o: string, r: string, v: string) => void;
 }) {
   const { city } = useApp();
-  const dests: Dest[] = [
-    ...city.centers.map((c) => ({ id: c.id, label: c.short || 'Center', color: '#9d2235', lat: c.lat, lng: c.lng })),
-    ...city.airports.map((a) => ({ id: a.id, label: (a.code || '?').toUpperCase(), color: '#44546a', lat: a.lat, lng: a.lng })),
-  ];
+  const dests: Dest[] = !city
+    ? []
+    : [
+        ...city.centers.map((c) => ({ id: c.id, label: c.short || 'Center', color: '#9d2235', lat: c.lat, lng: c.lng })),
+        ...city.airports.map((a) => ({ id: a.id, label: (a.code || '?').toUpperCase(), color: '#44546a', lat: a.lat, lng: a.lng })),
+      ];
 
   const [dep, setDep] = useState<DepartureChoice>('now');
   const [loading, setLoading] = useState(false);
@@ -489,6 +492,7 @@ function DriveTimes({
   const [filledAt, setFilledAt] = useState<string | null>(null);
 
   async function autofill() {
+    if (!city) return;
     setLoading(true);
     setError(null);
     setFilledAt(null);

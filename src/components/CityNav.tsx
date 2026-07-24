@@ -2,7 +2,8 @@ import { useApp } from '../store';
 
 /** City-selector nav: analyze-city tabs, add city, and reference-points toggle. */
 export function CityNav() {
-  const { state, selectCity, openCityModal, togglePanel, isMobile } = useApp();
+  const { state, selectCity, deleteCity, openCityModal, togglePanel, isMobile } = useApp();
+  const hasCities = state.cities.length > 0;
 
   return (
     <nav
@@ -34,14 +35,19 @@ export function CityNav() {
         {state.cities.map((c) => {
           const sel = c.id === state.cityId;
           return (
-            <button
+            <div
               key={c.id}
+              role="button"
+              tabIndex={0}
               onClick={() => selectCity(c.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') selectCity(c.id);
+              }}
               style={{
                 display: 'inline-flex',
                 alignItems: 'baseline',
                 gap: 7,
-                padding: '7px 15px',
+                padding: sel ? '7px 9px 7px 15px' : '7px 15px',
                 borderRadius: 999,
                 cursor: 'pointer',
                 fontFamily: 'var(--font-sans)',
@@ -56,7 +62,39 @@ export function CityNav() {
               <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em', opacity: 0.7 }}>
                 {c.state || ''}
               </span>
-            </button>
+              {sel && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  title={`Delete ${c.name}`}
+                  aria-label={`Delete ${c.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.confirm(`Delete “${c.name}” and all its locations? This cannot be undone.`)) {
+                      deleteCity(c.id);
+                    }
+                  }}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 18,
+                    height: 18,
+                    alignSelf: 'center',
+                    marginLeft: 2,
+                    borderRadius: 999,
+                    background: 'rgba(255,255,255,.22)',
+                    color: '#fff',
+                    fontSize: 13,
+                    lineHeight: 1,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ×
+                </span>
+              )}
+            </div>
           );
         })}
       </div>
@@ -64,12 +102,14 @@ export function CityNav() {
         + Add city
       </button>
       <div style={{ flex: 1 }} />
-      <button
-        className={`sx-btn sx-btn-sm ${state.panelOpen ? 'sx-btn-primary' : 'sx-btn-secondary'}`}
-        onClick={togglePanel}
-      >
-        Reference points
-      </button>
+      {hasCities && (
+        <button
+          className={`sx-btn sx-btn-sm ${state.panelOpen ? 'sx-btn-primary' : 'sx-btn-secondary'}`}
+          onClick={togglePanel}
+        >
+          Reference points
+        </button>
+      )}
     </nav>
   );
 }

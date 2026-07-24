@@ -1,33 +1,34 @@
-import { seedCities } from '../data/seed';
 import { DEFAULT_WEIGHTS } from '../data/factors';
 import type { AppState } from '../types';
 
-export const STORE_KEY = 'tmdx_site_explorer_v2';
+// v3 starts empty (no sample cities). The version bump abandons older sample
+// data so existing users get the blank slate automatically.
+export const STORE_KEY = 'tmdx_site_explorer_v3';
 
-/** A pristine seed state. */
+/** A pristine, empty state — the user builds cities up from scratch. */
 export function freshState(): AppState {
   return {
     weights: { ...DEFAULT_WEIGHTS },
-    cityId: 'houston',
+    cityId: '',
     selectedSiteId: null,
     panelOpen: false,
     layers: { centers: true, airports: true, office: true, staff: true },
-    cities: seedCities(),
+    cities: [],
     driveTimes: {},
   };
 }
 
-/** Load persisted state, repairing obvious gaps; seeds on any failure. */
+/** Load persisted state, repairing obvious gaps. */
 export function loadState(): AppState {
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) {
       const loaded = JSON.parse(raw) as AppState;
-      if (!loaded.cities || !loaded.cities.length) loaded.cities = seedCities();
+      if (!loaded.cities) loaded.cities = [];
       return loaded;
     }
   } catch {
-    /* fall through to seed */
+    /* fall through to a fresh empty state */
   }
   return freshState();
 }

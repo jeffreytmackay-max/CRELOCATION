@@ -84,6 +84,7 @@ function siteIcon(score: number, color: string, selected: boolean, d: number) {
 /** Center column: interactive Leaflet map with all marker layers + overlays. */
 export function MapView() {
   const { city, state, scored, selId, selectSite, addMode, cancelAdd, fitAll } = useApp();
+  if (!city) return null;
   const Ly = state.layers;
 
   return (

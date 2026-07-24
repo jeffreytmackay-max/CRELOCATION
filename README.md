@@ -57,9 +57,11 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   Managed in the Reference points panel. **Plot on map** geocodes each entry
   (Google Geocoding API) and shows it as a green headcount marker; a "Staff
   locations" layer toggle shows/hides them.
+- **Blank slate.** The app starts empty — add cities from scratch. An empty
+  state prompts for the first city; each city tab has a **×** to delete it (and
+  its locations); **Reset data** clears everything back to empty.
 - **Persistence.** The full state autosaves to `localStorage`. Export downloads
-  it as `site-selection-data.json`; Import restores from such a file; Reset data
-  restores the seed sample.
+  it as `site-selection-data.json`; Import restores from such a file.
 - **Responsive / iOS-ready.** The desktop three-column layout collapses on phones
   (≤820px) into a **Weights / Map / Details** tab switch, with a full-screen
   Reference-points sheet. Handles the iOS Safari `100dvh` toolbar, notch/home
@@ -116,7 +118,6 @@ src/
   types.ts              # domain model
   data/
     factors.ts          # the six weighting factors + defaults + icons
-    seed.ts             # sample cities (Houston, San Ramon, San Diego, LA)
   lib/
     scoring.ts          # normalize / composite / scoreCity / scoreColor
     storage.ts          # load / save / export / import

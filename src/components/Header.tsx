@@ -96,7 +96,14 @@ export function Header() {
       >
         Import
       </button>
-      <button className="sx-btn sx-btn-sm sx-btn-ghost" onClick={resetData}>
+      <button
+        className="sx-btn sx-btn-sm sx-btn-ghost"
+        onClick={() => {
+          if (window.confirm('Clear all cities and data and start from an empty slate? This cannot be undone.')) {
+            resetData();
+          }
+        }}
+      >
         Reset data
       </button>
       <button className="sx-btn sx-btn-sm sx-btn-ghost" onClick={resetWeights}>

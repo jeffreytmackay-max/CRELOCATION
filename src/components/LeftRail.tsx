@@ -131,6 +131,7 @@ function FactorWeighting() {
 
 function Ranking() {
   const { scored, selId, city, selectSite } = useApp();
+  if (!city) return null;
   return (
     <div style={{ padding: '20px 22px 26px' }}>
       <div

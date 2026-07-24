@@ -28,8 +28,8 @@ export type MobileView = 'weights' | 'map' | 'details';
 
 export interface Store {
   state: AppState;
-  /** The currently analyzed city. */
-  city: City;
+  /** The currently analyzed city, or undefined when there are no cities yet. */
+  city: City | undefined;
   /** Scored + ranked sites (office injected when enabled). */
   scored: ScoredSite[];
   /** Effective selected id (falls back to rank 1). */
@@ -68,6 +68,7 @@ export interface Store {
   setWeight: (key: FactorKey, val: number) => void;
   resetWeights: () => void;
   selectCity: (id: string) => void;
+  deleteCity: (id: string) => void;
   selectSite: (id: string) => void;
 
   getDrive: (originId: string, refId: string) => string;
@@ -151,7 +152,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [state.cities, state.cityId],
   );
   const norm = useMemo(() => normalize(state.weights), [state.weights]);
-  const scored = useMemo(() => scoreCity(city, state.weights), [city, state.weights]);
+  const scored = useMemo(
+    () => (city ? scoreCity(city, state.weights) : []),
+    [city, state.weights],
+  );
   const selId = useMemo(() => {
     const stored = state.selectedSiteId;
     if (stored && scored.some((s) => s.id === stored)) return stored;
@@ -186,6 +190,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [apply, state.cities],
   );
 
+  const deleteCity = useCallback(
+    (id: string) => {
+      let next: City | undefined;
+      apply((d) => {
+        d.cities = d.cities.filter((c) => c.id !== id);
+        delete d.driveTimes[id];
+        if (d.cityId === id) {
+          next = d.cities[0];
+          d.cityId = next?.id ?? '';
+          d.selectedSiteId = null;
+        }
+      });
+      if (next && mapRef.current) mapRef.current.setView(next.center, next.zoom);
+    },
+    [apply],
+  );
+
   const selectSite = useCallback(
     (id: string) => {
       apply((d) => void (d.selectedSiteId = id));
@@ -197,7 +218,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const fitAll = useCallback(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !city) return;
     const pts: [number, number][] = city.sites
       .filter((s) => s.lat != null && s.lng != null)
       .map((s) => [s.lat, s.lng]);
@@ -324,8 +345,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [apply],
   );
 
-  const findCity = (d: AppState) =>
-    d.cities.find((c) => c.id === d.cityId) ?? d.cities[0];
+  // Callers below only run from UI that requires an active city, so the
+  // fallback is asserted non-null.
+  const findCity = (d: AppState): City =>
+    d.cities.find((c) => c.id === d.cityId) ?? d.cities[0]!;
 
   const toggleOffice = useCallback(
     (on: boolean) => apply((d) => void (findCity(d).office.on = on)),
@@ -398,6 +421,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addDiscoveredRefs = useCallback(
     (kind: 'centers' | 'airports', items: DiscoveredPlace[]): number => {
+      if (!city) return 0;
       const existing: { lat: number; lng: number }[] =
         kind === 'centers' ? city.centers : city.airports;
       // ~0.004° ≈ 400 m — treats results at the same site as duplicates.
@@ -531,17 +555,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const text = await file.text();
     const data = parseImport(text);
     if (!data.cities.some((c) => c.id === data.cityId)) {
-      data.cityId = data.cities[0].id;
+      data.cityId = data.cities[0]?.id ?? '';
     }
     setState(data);
     const c = data.cities.find((x) => x.id === data.cityId) ?? data.cities[0];
-    if (mapRef.current) mapRef.current.setView(c.center, c.zoom ?? 10);
+    if (c && mapRef.current) mapRef.current.setView(c.center, c.zoom ?? 10);
   }, []);
   const resetData = useCallback(() => {
-    const s = freshState();
-    setState(s);
-    const c = s.cities[0];
-    if (mapRef.current) mapRef.current.setView(c.center, c.zoom);
+    setState(freshState());
   }, []);
 
   const store: Store = {
@@ -569,6 +590,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWeight,
     resetWeights,
     selectCity,
+    deleteCity,
     selectSite,
     getDrive,
     setDrive,
