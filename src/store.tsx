@@ -88,6 +88,8 @@ export interface Store {
   addStaff: () => void;
   editStaff: (id: string, field: 'city' | 'state' | 'zip' | 'employees', v: string) => void;
   removeStaff: (id: string) => void;
+  /** Set a staff row's geocoded coordinates and reveal the staff map layer. */
+  setStaffCoords: (id: string, lat: number, lng: number) => void;
 
   /** Append discovered centers/airports, skipping near-duplicates. Returns count added. */
   addDiscoveredRefs: (kind: 'centers' | 'airports', items: DiscoveredPlace[]) => number;
@@ -366,6 +368,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const item = (findCity(d).staff ??= []).find((x) => x.id === id);
         if (!item) return;
         item[field] = field === 'employees' ? v.replace(/[^0-9]/g, '') : v;
+        // Address changed → drop stale coordinates until re-plotted.
+        if (field !== 'employees') {
+          item.lat = undefined;
+          item.lng = undefined;
+        }
+      }),
+    [apply],
+  );
+  const setStaffCoords = useCallback(
+    (id: string, lat: number, lng: number) =>
+      apply((d) => {
+        const item = (findCity(d).staff ??= []).find((x) => x.id === id);
+        if (!item) return;
+        item.lat = lat;
+        item.lng = lng;
+        d.layers.staff = true; // reveal the layer once anything is plotted
       }),
     [apply],
   );
@@ -563,6 +581,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addStaff,
     editStaff,
     removeStaff,
+    setStaffCoords,
     addDiscoveredRefs,
     startAdd,
     cancelAdd,

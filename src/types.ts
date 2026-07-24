@@ -66,6 +66,9 @@ export interface StaffLocation {
   zip: string;
   /** Employee count, stored as typed (digits only); parse for totals. */
   employees: string;
+  /** Geocoded coordinates (set by "Plot on map"); cleared when the address changes. */
+  lat?: number;
+  lng?: number;
 }
 
 export interface City {
@@ -86,6 +89,8 @@ export interface Layers {
   centers: boolean;
   airports: boolean;
   office: boolean;
+  /** Staff-location markers. Optional — older saved states may omit it. */
+  staff?: boolean;
 }
 
 /**

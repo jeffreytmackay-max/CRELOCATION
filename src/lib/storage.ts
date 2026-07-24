@@ -11,7 +11,7 @@ export function freshState(): AppState {
     cityId: 'houston',
     selectedSiteId: null,
     panelOpen: false,
-    layers: { centers: true, airports: true, office: true },
+    layers: { centers: true, airports: true, office: true, staff: true },
     cities: seedCities(),
     driveTimes: {},
   };

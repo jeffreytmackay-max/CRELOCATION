@@ -66,6 +66,10 @@ export function Legend() {
           />
           <span style={label}>Your office</span>
         </div>
+        <div style={row}>
+          <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#1f8f5f', flex: 'none' }} />
+          <span style={label}>Staff (employees)</span>
+        </div>
       </div>
     </div>
   );

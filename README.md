@@ -54,7 +54,9 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   key — see [Environment variables](#environment-variables).
 - **Staff locations.** Record how many employees live where (city / state / ZIP +
   headcount) per metro, with a live total — context for the staff-commute factor.
-  Managed in the Reference points panel.
+  Managed in the Reference points panel. **Plot on map** geocodes each entry
+  (Google Geocoding API) and shows it as a green headcount marker; a "Staff
+  locations" layer toggle shows/hides them.
 - **Persistence.** The full state autosaves to `localStorage`. Export downloads
   it as `site-selection-data.json`; Import restores from such a file; Reset data
   restores the seed sample.

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { geocode } from '../lib/geocode';
 import { findNearby } from '../lib/places';
 import { useApp } from '../store';
 
@@ -29,12 +30,52 @@ export function ReferencePanel() {
     addStaff,
     editStaff,
     removeStaff,
+    setStaffCoords,
     addDiscoveredRefs,
     isMobile,
   } = useApp();
 
   const [busy, setBusy] = useState<'centers' | 'airports' | null>(null);
   const [status, setStatus] = useState<FindStatus | null>(null);
+  const [plotBusy, setPlotBusy] = useState(false);
+  const [plotStatus, setPlotStatus] = useState<{ text: string; err: boolean } | null>(null);
+
+  async function plotStaff() {
+    const rows = (city.staff ?? []).filter((s) => s.city.trim() || s.zip.trim());
+    if (!rows.length) {
+      setPlotStatus({ text: 'Add a city or ZIP to a staff row first.', err: true });
+      return;
+    }
+    setPlotBusy(true);
+    setPlotStatus(null);
+    let ok = 0;
+    let fail = 0;
+    let errMsg = '';
+    await Promise.all(
+      rows.map(async (s) => {
+        const q = [s.city, s.state, s.zip].map((x) => x.trim()).filter(Boolean).join(', ');
+        try {
+          const r = await geocode(q);
+          if (r[0]) {
+            setStaffCoords(s.id, r[0].lat, r[0].lng);
+            ok++;
+          } else {
+            fail++;
+          }
+        } catch (e) {
+          fail++;
+          errMsg = e instanceof Error ? e.message : '';
+        }
+      }),
+    );
+    setPlotBusy(false);
+    setPlotStatus({
+      text: ok
+        ? `Plotted ${ok} staff location${ok === 1 ? '' : 's'}${fail ? ` · ${fail} not found` : '.'}`
+        : errMsg || 'Could not locate those — check the city / ZIP.',
+      err: ok === 0,
+    });
+  }
 
   async function discover(kind: 'centers' | 'airports') {
     setBusy(kind);
@@ -169,10 +210,11 @@ export function ReferencePanel() {
               ['centers', 'Transplant centers'],
               ['airports', 'Airports'],
               ['office', 'Your office'],
+              ['staff', 'Staff locations'],
             ] as const
           ).map(([k, txt]) => (
             <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer' }}>
-              <input type="checkbox" checked={Ly[k]} onChange={() => toggleLayer(k)} style={cbStyle} />
+              <input type="checkbox" checked={!!Ly[k]} onChange={() => toggleLayer(k)} style={cbStyle} />
               <span style={{ fontSize: 12.5, color: 'var(--text-body)' }}>{txt}</span>
             </label>
           ))}
@@ -287,10 +329,30 @@ export function ReferencePanel() {
 
         {/* Staff locations */}
         <div style={{ padding: '16px 18px 20px' }}>
-          <SectionHeader label="Staff locations" addLabel="+ Add" onAdd={addStaff} />
-          <div style={{ fontSize: 11, lineHeight: 1.4, color: 'var(--text-muted)', margin: '-4px 0 12px' }}>
+          <SectionHeader
+            label="Staff locations"
+            addLabel="+ Add"
+            onAdd={addStaff}
+            onFind={plotStaff}
+            finding={plotBusy}
+            findLabel="Plot on map"
+            findBusyLabel="Plotting…"
+          />
+          <div style={{ fontSize: 11, lineHeight: 1.4, color: 'var(--text-muted)', margin: '-4px 0 10px' }}>
             Employees by home city / ZIP — context for the staff-commute factor.
           </div>
+          {plotStatus && (
+            <div
+              style={{
+                fontSize: 10.5,
+                lineHeight: 1.4,
+                margin: '0 0 10px',
+                color: plotStatus.err ? 'var(--tmdx-crimson)' : 'var(--tmdx-green)',
+              }}
+            >
+              {plotStatus.text}
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {staff.map((s) => (
               <div
@@ -402,12 +464,16 @@ function SectionHeader({
   addLabel = '+ Add on map',
   onFind,
   finding = false,
+  findLabel = 'Find nearby',
+  findBusyLabel = 'Finding…',
 }: {
   label: string;
   onAdd: () => void;
   addLabel?: string;
   onFind?: () => void;
   finding?: boolean;
+  findLabel?: string;
+  findBusyLabel?: string;
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 11 }}>
@@ -417,10 +483,10 @@ function SectionHeader({
           <button
             onClick={onFind}
             disabled={finding}
-            title="Discover nearby places with Google and add them"
+            title="Locate these with Google and show them on the map"
             style={{ ...linkBtnStyle, opacity: finding ? 0.6 : 1 }}
           >
-            {finding ? 'Finding…' : 'Find nearby'}
+            {finding ? findBusyLabel : findLabel}
           </button>
         )}
         <button onClick={onAdd} style={linkBtnStyle}>

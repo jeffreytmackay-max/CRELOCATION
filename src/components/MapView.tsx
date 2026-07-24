@@ -64,6 +64,16 @@ function officeIcon() {
     iconAnchor: [9, 9],
   });
 }
+function staffIcon(count: number) {
+  const label = count > 0 ? String(count) : '·';
+  const d = 24;
+  return L.divIcon({
+    className: '',
+    html: `<div class="sx-mark" style="width:${d}px;height:${d}px;border-radius:50%;background:#1f8f5f;border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);font-size:12px">${label}</div>`,
+    iconSize: [d, d],
+    iconAnchor: [d / 2, d / 2],
+  });
+}
 function siteIcon(score: number, color: string, selected: boolean, d: number) {
   const html = `<div style="position:relative"><div class="sx-mark" style="width:${d}px;height:${d}px;border-radius:50%;background:${color};border:${
     selected ? '3px solid #9d2235' : '2.5px solid #fff'
@@ -121,6 +131,17 @@ export function MapView() {
             </Tooltip>
           </Marker>
         )}
+
+        {Ly.staff &&
+          (city.staff ?? []).map((s) =>
+            s.lat == null || s.lng == null ? null : (
+              <Marker key={s.id} position={[s.lat, s.lng]} icon={staffIcon(parseInt(s.employees, 10) || 0)}>
+                <Tooltip permanent direction="top" offset={[0, -13]} className="sx-tt sx-tt-ref">
+                  {s.city || 'Staff'}
+                </Tooltip>
+              </Marker>
+            ),
+          )}
 
         {scored
           .filter((s) => !s.isOffice && s.lat != null)
