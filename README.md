@@ -57,9 +57,11 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   Managed in the Reference points panel. **Plot on map** geocodes each entry
   (Google Geocoding API) and shows it as a green headcount marker; a "Staff
   locations" layer toggle shows/hides them.
-- **Blank slate.** The app starts empty — add cities from scratch. An empty
-  state prompts for the first city; each city tab has a **×** to delete it (and
-  its locations); **Reset data** clears everything back to empty.
+- **Blank slate.** The app starts empty — add cities from scratch. The Add-city
+  dialog takes a name, state and **ZIP**, and geocodes the map center from them
+  (lat/long optional for exact placement). An empty state prompts for the first
+  city; each city tab has a **×** to delete it (and its locations); **Reset
+  data** clears everything back to empty.
 - **Persistence.** The full state autosaves to `localStorage`. Export downloads
   it as `site-selection-data.json`; Import restores from such a file.
 - **Responsive / iOS-ready.** The desktop three-column layout collapses on phones

@@ -75,6 +75,8 @@ export interface City {
   id: string;
   name: string;
   state: string;
+  /** Optional ZIP used to geocode the map center when the city was added. */
+  zip?: string;
   center: [number, number];
   zoom: number;
   office: Office;

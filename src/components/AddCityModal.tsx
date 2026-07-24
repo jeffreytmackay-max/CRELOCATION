@@ -12,9 +12,11 @@ export function AddCityModal() {
   const { cityModalOpen, closeCityModal, addCity } = useApp();
   const [name, setName] = useState('');
   const [st, setSt] = useState('');
+  const [zip, setZip] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   const [error, setError] = useState('');
+  const [adding, setAdding] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
 
   if (!cityModalOpen) return null;
@@ -22,6 +24,7 @@ export function AddCityModal() {
   function reset() {
     setName('');
     setSt('');
+    setZip('');
     setLat('');
     setLng('');
     setError('');
@@ -30,16 +33,22 @@ export function AddCityModal() {
     reset();
     closeCityModal();
   }
-  function confirm() {
+  async function confirm() {
     const nm = name.trim();
     if (!nm) {
       setError('Enter a city or metro name to continue.');
       nameRef.current?.focus();
       return;
     }
-    // lat/lng optional — NaN tells the store to fall back to the current map center.
-    addCity(nm, st.trim().toUpperCase(), parseFloat(lat), parseFloat(lng));
-    reset();
+    setError('');
+    setAdding(true);
+    try {
+      // lat/lng win when given; otherwise the store geocodes name/state/ZIP.
+      await addCity(nm, st.trim().toUpperCase(), zip.trim(), parseFloat(lat), parseFloat(lng));
+      reset();
+    } finally {
+      setAdding(false);
+    }
   }
 
   return (
@@ -108,14 +117,40 @@ export function AddCityModal() {
           <div style={{ height: 8 }} />
         )}
 
-        <label style={fieldLabel}>State</label>
-        <input
-          className="sx-inp"
-          value={st}
-          onChange={(e) => setSt(e.target.value)}
-          placeholder="e.g. TN"
-          style={{ margin: '5px 0 14px' }}
-        />
+        <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+          <div style={{ flex: 1 }}>
+            <label style={fieldLabel}>State</label>
+            <input
+              className="sx-inp"
+              value={st}
+              onChange={(e) => setSt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') confirm();
+              }}
+              placeholder="e.g. TN"
+              style={{ marginTop: 5 }}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={fieldLabel}>ZIP code</label>
+            <input
+              className="sx-inp"
+              value={zip}
+              onChange={(e) => setZip(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') confirm();
+              }}
+              placeholder="e.g. 37203"
+              inputMode="numeric"
+              style={{ marginTop: 5 }}
+            />
+          </div>
+        </div>
+
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14 }}>
+          We’ll locate the metro from its name, state and ZIP. Lat/long below are
+          optional — only for exact placement.
+        </div>
 
         <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
           <div style={{ flex: 1 }}>
@@ -140,16 +175,17 @@ export function AddCityModal() {
           </div>
         </div>
 
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 18 }}>
-          Tip: leave lat/long blank to center on the current map view.
-        </div>
-
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button className="sx-btn sx-btn-sm sx-btn-secondary" onClick={cancel}>
+          <button className="sx-btn sx-btn-sm sx-btn-secondary" onClick={cancel} disabled={adding}>
             Cancel
           </button>
-          <button className="sx-btn sx-btn-sm sx-btn-primary" onClick={confirm}>
-            Add city
+          <button
+            className="sx-btn sx-btn-sm sx-btn-primary"
+            onClick={confirm}
+            disabled={adding}
+            style={{ opacity: adding ? 0.7 : 1 }}
+          >
+            {adding ? 'Adding…' : 'Add city'}
           </button>
         </div>
       </div>

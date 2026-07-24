@@ -11,6 +11,7 @@ import {
 import type { Map as LeafletMap } from 'leaflet';
 import { DEFAULT_WEIGHTS } from './data/factors';
 import { normalize, scoreCity } from './lib/scoring';
+import { geocode } from './lib/geocode';
 import type { DiscoveredPlace } from './lib/places';
 import {
   exportState,
@@ -100,8 +101,17 @@ export interface Store {
 
   openCityModal: () => void;
   closeCityModal: () => void;
-  /** lat/lng may be NaN — falls back to the current map center. */
-  addCity: (name: string, state: string, lat: number, lng: number) => void;
+  /**
+   * Add a metro. lat/lng win when provided; otherwise the center is geocoded
+   * from name/state/zip, falling back to the current map center.
+   */
+  addCity: (
+    name: string,
+    state: string,
+    zip: string,
+    lat: number,
+    lng: number,
+  ) => Promise<void>;
 
   exportData: () => void;
   importData: (file: File) => Promise<void>;
@@ -509,10 +519,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const openCityModal = useCallback(() => setCityModalOpen(true), []);
   const closeCityModal = useCallback(() => setCityModalOpen(false), []);
   const addCity = useCallback(
-    (name: string, st: string, lat: number, lng: number) => {
+    async (name: string, st: string, zip: string, lat: number, lng: number) => {
       const id = `city${Date.now()}`;
       let clat = lat;
       let clng = lng;
+      let zoom = mapRef.current?.getZoom() ?? 11;
+      // No explicit lat/lng → geocode from name / state / ZIP.
+      if (Number.isNaN(clat) || Number.isNaN(clng)) {
+        const q = [name, st, zip].map((x) => (x || '').trim()).filter(Boolean).join(', ');
+        if (q) {
+          try {
+            const r = await geocode(q);
+            if (r[0]) {
+              clat = r[0].lat;
+              clng = r[0].lng;
+              zoom = 11;
+            }
+          } catch {
+            /* geocoding unavailable — fall back below */
+          }
+        }
+      }
+      // Still nothing → current map center, else continental-US center.
       if (Number.isNaN(clat) || Number.isNaN(clng)) {
         const c = mapRef.current?.getCenter();
         clat = c?.lat ?? 39.5;
@@ -524,8 +552,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           id,
           name,
           state: st,
+          zip: zip.trim() || undefined,
           center,
-          zoom: mapRef.current?.getZoom() ?? 10,
+          zoom,
           office: {
             on: false,
             address: '',
@@ -545,7 +574,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         d.panelOpen = true;
       });
       setCityModalOpen(false);
-      if (mapRef.current) mapRef.current.setView(center, mapRef.current.getZoom() ?? 10);
+      if (mapRef.current) mapRef.current.setView(center, zoom);
     },
     [apply],
   );
