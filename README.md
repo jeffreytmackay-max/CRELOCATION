@@ -36,11 +36,15 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   factor score (0–100, re-scores live) and edit the name, area, notes, and facts
   (asking rent, available space, …) — for candidate sites and the office. This is
   how you put in real figures, since there's no live real-estate data feed.
-- **Auto-score access factors.** New sites start at a neutral 70 (flagged
-  **Unscored** in the ranking). **Auto-score access from drive times** fills the
-  transplant-center, airport-access and staff-commute scores for every site from
-  traffic-aware Google drive times (closer = higher, typical weekday-8am
-  traffic). Real-estate supply, climate risk and crime are still set by hand.
+- **Auto-score factors.** New sites start at a neutral 70 (flagged **Unscored**
+  in the ranking). **Auto-score from drive times + crime** fills five factors for
+  every site: transplant-center, airport-access and staff-commute from
+  traffic-aware Google drive times (closer = higher, typical weekday-8am), and
+  **crime & safety** from the **FBI Crime Data Explorer** (nearest reporting
+  agency's violent+property rate per 100k, by city). Real-estate supply and
+  climate risk are still set by hand. The two data sources run independently, so
+  one works even if the other's key isn't configured. Crime data is
+  jurisdiction-level, so it differentiates municipalities, not neighborhoods.
 - **Office benchmark.** Enable the current office to inject it into the ranked
   list as a "Current" pseudo-site scored on the same factors.
 - **Add on map.** Drop new candidate sites, transplant centers, airports, or
@@ -99,11 +103,12 @@ npm run preview  # preview the production build
 | Variable              | Where            | Purpose                                                        |
 | --------------------- | ---------------- | -------------------------------------------------------------- |
 | `GOOGLE_MAPS_API_KEY` | server-side only | Drive-time auto-fill (`/api/drivetimes`, Distance Matrix API), Find-nearby discovery (`/api/places`, Places API), and search-to-add (`/api/geocode`, Geocoding API). Never exposed to the browser. |
+| `FBI_CRIME_API_KEY`   | server-side only | Crime auto-score (`/api/crime`, FBI Crime Data Explorer). Optional — omit to skip crime auto-score. Free key from [api.data.gov/signup](https://api.data.gov/signup/). |
 
-**Vercel:** Project → Settings → Environment Variables → add `GOOGLE_MAPS_API_KEY`
+**Vercel:** Project → Settings → Environment Variables → add the keys
 (all environments) → redeploy. In the [Google Cloud console](https://console.cloud.google.com/),
 enable the **Distance Matrix API**, **Places API**, and **Geocoding API** on the
-key, and restrict it.
+Google key, and restrict it.
 
 **Local:** copy `.env.example` to `.env`, fill in the key, and run `vercel dev`
 (the `/api` functions do not run under plain `vite dev`). See `.env.example`.
@@ -118,6 +123,7 @@ api/
   drivetimes.js         # Vercel function: Google Distance Matrix proxy (traffic)
   places.js             # Vercel function: Google Places proxy (find nearby refs)
   geocode.js            # Vercel function: Google Geocoding proxy (search-to-add)
+  crime.js              # Vercel function: FBI Crime Data Explorer proxy
 src/
   main.tsx              # entry
   App.tsx               # layout: header, nav, three columns, overlays
@@ -131,6 +137,7 @@ src/
     drivetimes.ts       # client for /api/drivetimes + departure-time presets
     places.ts           # client for /api/places (find nearby)
     geocode.ts          # client for /api/geocode (search-to-add)
+    crime.ts            # client for /api/crime (FBI) + rate→score
   components/
     Header.tsx          # brand + data actions
     CityNav.tsx         # city tabs + reference-points toggle

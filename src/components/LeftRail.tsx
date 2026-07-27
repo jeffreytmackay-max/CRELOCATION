@@ -418,28 +418,37 @@ function SearchAddSite() {
   );
 }
 
-/** Auto-score the access factors for every site from traffic-aware drive times. */
+/** Auto-score the access factors (drive times) and crime (FBI) for every site. */
 function AutoScore() {
-  const { autoScoreCity } = useApp();
+  const { autoScoreCity, autoScoreCrime } = useApp();
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ text: string; err: boolean } | null>(null);
 
   async function run() {
     setBusy(true);
     setStatus(null);
-    try {
-      const r = await autoScoreCity();
-      if (r.error) setStatus({ text: r.error, err: true });
-      else
-        setStatus({
-          text: `Scored transplant, airport & commute for ${r.scored} site${r.scored === 1 ? '' : 's'} from drive times.`,
-          err: false,
-        });
-    } catch (e) {
-      setStatus({ text: e instanceof Error ? e.message : 'Auto-score failed.', err: true });
-    } finally {
-      setBusy(false);
+    // Drive-time (Google) and crime (FBI) run independently — one can succeed
+    // even if the other's API isn't configured.
+    const [access, crime] = await Promise.all([
+      autoScoreCity().catch((e) => ({ scored: 0, error: e?.message || 'Auto-score failed.' })),
+      autoScoreCrime().catch((e) => ({ scored: 0, error: e?.message || 'Crime lookup failed.' })),
+    ]);
+    const ok: string[] = [];
+    if (access.scored) ok.push(`transplant, airport & commute (${access.scored})`);
+    if (crime.scored) ok.push(`crime (${crime.scored})`);
+    const problems: string[] = [];
+    if (!access.scored && access.error) problems.push(`Access: ${access.error}`);
+    if (!crime.scored && crime.error) problems.push(`Crime: ${crime.error}`);
+
+    if (ok.length) {
+      setStatus({
+        text: `Scored ${ok.join(' and ')}.${problems.length ? ` (${problems.join(' · ')})` : ''}`,
+        err: false,
+      });
+    } else {
+      setStatus({ text: problems.join(' · ') || 'Nothing to score yet.', err: true });
     }
+    setBusy(false);
   }
 
   return (
@@ -449,9 +458,9 @@ function AutoScore() {
         onClick={run}
         disabled={busy}
         style={{ width: '100%', justifyContent: 'center', opacity: busy ? 0.7 : 1 }}
-        title="Fill transplant, airport and staff-commute scores from traffic-aware drive times"
+        title="Fill transplant, airport, staff-commute (drive times) and crime (FBI) scores"
       >
-        {busy ? 'Scoring…' : '⚡ Auto-score access from drive times'}
+        {busy ? 'Scoring…' : '⚡ Auto-score from drive times + crime'}
       </button>
       <div style={{ marginTop: 6, fontSize: 10.5, lineHeight: 1.4 }}>
         {status ? (
@@ -460,8 +469,8 @@ function AutoScore() {
           </span>
         ) : (
           <span style={{ color: 'var(--text-muted)' }}>
-            Sets transplant, airport &amp; commute (closer = higher). You still set real estate,
-            climate &amp; crime.
+            Sets transplant, airport &amp; commute (drive times) and crime (FBI, by city). You
+            still set real estate &amp; climate.
           </span>
         )}
       </div>

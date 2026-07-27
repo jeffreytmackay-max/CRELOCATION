@@ -13,6 +13,7 @@ import { DEFAULT_WEIGHTS } from './data/factors';
 import { minutesToScore, normalize, scoreCity } from './lib/scoring';
 import { geocode } from './lib/geocode';
 import { departureTimestamp, matrix } from './lib/drivetimes';
+import { crimeRateToScore, fetchCrimeRates } from './lib/crime';
 import type { DiscoveredPlace } from './lib/places';
 import {
   exportState,
@@ -65,6 +66,8 @@ export interface Store {
    * factors untouched. Returns how many sites were updated (or an error).
    */
   autoScoreCity: () => Promise<{ scored: number; error?: string }>;
+  /** Auto-score the crime factor from the FBI Crime Data Explorer (by state). */
+  autoScoreCrime: () => Promise<{ scored: number; error?: string }>;
 
   /* ---- Per-site editing (works for a real site or the "__office" benchmark) ---- */
   setSiteScore: (id: string, key: FactorKey, val: number) => void;
@@ -352,6 +355,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
     });
     return { scored: updates.size };
+  }, [city, apply]);
+
+  const autoScoreCrime = useCallback(async (): Promise<{ scored: number; error?: string }> => {
+    if (!city) return { scored: 0, error: 'No city selected.' };
+    if (!/^[A-Za-z]{2}$/.test((city.state || '').trim())) {
+      return { scored: 0, error: 'Set the city’s 2-letter state to auto-score crime.' };
+    }
+    const sites = city.sites
+      .filter((s) => s.lat != null && s.lng != null)
+      .map((s) => ({ id: s.id, lat: s.lat, lng: s.lng }));
+    if (!sites.length) return { scored: 0, error: 'Add candidate sites first.' };
+
+    let results;
+    try {
+      results = await fetchCrimeRates(city.state.trim(), sites);
+    } catch (e) {
+      return { scored: 0, error: e instanceof Error ? e.message : 'Crime lookup failed.' };
+    }
+    const scoreById = new Map<string, number>();
+    results.forEach((r) => {
+      if (r.rate != null) scoreById.set(r.id, crimeRateToScore(r.rate));
+    });
+    if (!scoreById.size) {
+      return { scored: 0, error: 'No crime rates returned for these locations.' };
+    }
+    apply((d) => {
+      const c = findCity(d);
+      scoreById.forEach((score, id) => {
+        const s = c.sites.find((x) => x.id === id);
+        if (s) s.scores.crime = score;
+      });
+    });
+    return { scored: scoreById.size };
   }, [city, apply]);
 
   /** The editable target for an id: a real site, or the office for "__office". */
@@ -685,6 +721,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     editSite,
     addSiteAt,
     autoScoreCity,
+    autoScoreCrime,
     setSiteScore,
     setSiteText,
     setFact,
