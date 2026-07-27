@@ -54,3 +54,32 @@ export async function fetchDriveTimes(
   if (!res.ok) throw new Error(data.error || `Drive-time request failed (HTTP ${res.status}).`);
   return data.durations ?? [];
 }
+
+/**
+ * Full origins×destinations drive-time matrix (minutes), chunked to stay within
+ * Google's 25-per-side / 100-element limits. result[i][j] = origin i → dest j.
+ */
+export async function matrix(
+  origins: LatLng[],
+  destinations: LatLng[],
+  departureTime: number | 'now',
+): Promise<(number | null)[][]> {
+  const OCHUNK = 10; // ≤25 per side; 10×10 = 100 elements max per call
+  const result: (number | null)[][] = origins.map(() =>
+    new Array<number | null>(destinations.length).fill(null),
+  );
+  for (let o = 0; o < origins.length; o += OCHUNK) {
+    const oChunk = origins.slice(o, o + OCHUNK);
+    const dStep = Math.max(1, Math.floor(100 / oChunk.length));
+    for (let d = 0; d < destinations.length; d += dStep) {
+      const dChunk = destinations.slice(d, d + dStep);
+      const durs = await fetchDriveTimes(oChunk, dChunk, departureTime);
+      durs.forEach((row, ri) =>
+        row.forEach((val, ci) => {
+          result[o + ri][d + ci] = val;
+        }),
+      );
+    }
+  }
+  return result;
+}

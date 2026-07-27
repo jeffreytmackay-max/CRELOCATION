@@ -36,6 +36,11 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   factor score (0–100, re-scores live) and edit the name, area, notes, and facts
   (asking rent, available space, …) — for candidate sites and the office. This is
   how you put in real figures, since there's no live real-estate data feed.
+- **Auto-score access factors.** New sites start at a neutral 70 (flagged
+  **Unscored** in the ranking). **Auto-score access from drive times** fills the
+  transplant-center, airport-access and staff-commute scores for every site from
+  traffic-aware Google drive times (closer = higher, typical weekday-8am
+  traffic). Real-estate supply, climate risk and crime are still set by hand.
 - **Office benchmark.** Enable the current office to inject it into the ranked
   list as a "Current" pseudo-site scored on the same factors.
 - **Add on map.** Drop new candidate sites, transplant centers, airports, or

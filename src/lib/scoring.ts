@@ -9,6 +9,19 @@ export function scoreOf(scores: Scores, key: FactorKey): number {
   return scores[key] ?? NEUTRAL_SCORE;
 }
 
+/** True when every factor is still at the neutral default (site not yet scored). */
+export function isUnscored(scores: Scores): boolean {
+  return FACTORS.every((f) => scoreOf(scores, f.key) === NEUTRAL_SCORE);
+}
+
+/**
+ * Map a drive time (minutes) to a 0–100 access score — closer is better.
+ * ~10 min ≈ 90, 30 min ≈ 70, 60 min ≈ 40; clamped to [10, 100].
+ */
+export function minutesToScore(mins: number): number {
+  return Math.max(10, Math.min(100, Math.round(100 - mins)));
+}
+
 /** Weights normalized so they sum to 1. Falls back to an even split. */
 export function normalize(weights: Scores): Record<FactorKey, number> {
   const total = FACTORS.reduce((a, f) => a + (weights[f.key] ?? 0), 0);

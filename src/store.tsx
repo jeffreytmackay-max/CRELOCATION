@@ -10,8 +10,9 @@ import {
 } from 'react';
 import type { Map as LeafletMap } from 'leaflet';
 import { DEFAULT_WEIGHTS } from './data/factors';
-import { normalize, scoreCity } from './lib/scoring';
+import { minutesToScore, normalize, scoreCity } from './lib/scoring';
 import { geocode } from './lib/geocode';
+import { departureTimestamp, matrix } from './lib/drivetimes';
 import type { DiscoveredPlace } from './lib/places';
 import {
   exportState,
@@ -58,6 +59,12 @@ export interface Store {
   editSite: (id: string, field: 'area', v: string) => void;
   /** Create a candidate site at a location (from search), select it, and pan to it. */
   addSiteAt: (name: string, lat: number, lng: number) => void;
+  /**
+   * Auto-score the access factors (transplant / airport / staff commute) for
+   * every candidate site from traffic-aware drive times. Leaves the other
+   * factors untouched. Returns how many sites were updated (or an error).
+   */
+  autoScoreCity: () => Promise<{ scored: number; error?: string }>;
 
   /* ---- Per-site editing (works for a real site or the "__office" benchmark) ---- */
   setSiteScore: (id: string, key: FactorKey, val: number) => void;
@@ -280,6 +287,72 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [apply, isMobile],
   );
+
+  const autoScoreCity = useCallback(async (): Promise<{ scored: number; error?: string }> => {
+    if (!city) return { scored: 0, error: 'No city selected.' };
+    const sites = city.sites.filter((s) => s.lat != null && s.lng != null);
+    if (!sites.length) return { scored: 0, error: 'Add candidate sites first.' };
+    const centers = city.centers.filter((c) => c.lat != null && c.lng != null);
+    const airports = city.airports.filter((a) => a.lat != null && a.lng != null);
+    const staff = (city.staff ?? []).filter((s) => s.lat != null && s.lng != null);
+    if (!centers.length && !airports.length && !staff.length) {
+      return {
+        scored: 0,
+        error: 'Add transplant centers or airports, or plot staff on the map, first.',
+      };
+    }
+
+    const dep = departureTimestamp('weekday-8'); // typical morning traffic
+    const sitePts = sites.map((s) => ({ lat: s.lat, lng: s.lng }));
+    const refPts = [...centers, ...airports].map((r) => ({ lat: r.lat, lng: r.lng }));
+    const staffPts = staff.map((s) => ({ lat: s.lat as number, lng: s.lng as number }));
+
+    let siteToRef: (number | null)[][] = [];
+    let staffToSite: (number | null)[][] = [];
+    try {
+      if (refPts.length) siteToRef = await matrix(sitePts, refPts, dep);
+      if (staffPts.length) staffToSite = await matrix(staffPts, sitePts, dep);
+    } catch (e) {
+      return { scored: 0, error: e instanceof Error ? e.message : 'Drive-time lookup failed.' };
+    }
+
+    const updates = new Map<string, { hospital?: number; airport?: number; commute?: number }>();
+    sites.forEach((site, i) => {
+      const u: { hospital?: number; airport?: number; commute?: number } = {};
+      const row = siteToRef[i] ?? [];
+      const centerMins = row.slice(0, centers.length).filter((m): m is number => m != null);
+      const airportMins = row.slice(centers.length).filter((m): m is number => m != null);
+      if (centerMins.length) u.hospital = minutesToScore(Math.min(...centerMins));
+      if (airportMins.length) u.airport = minutesToScore(Math.min(...airportMins));
+      // Staff commute — headcount-weighted average drive time to this site.
+      let sumW = 0;
+      let sumWM = 0;
+      staff.forEach((st, j) => {
+        const m = staffToSite[j]?.[i];
+        if (m == null) return;
+        const w = Math.max(parseInt(st.employees, 10) || 0, 1);
+        sumW += w;
+        sumWM += m * w;
+      });
+      if (sumW > 0) u.commute = minutesToScore(sumWM / sumW);
+      if (u.hospital != null || u.airport != null || u.commute != null) updates.set(site.id, u);
+    });
+
+    if (!updates.size) {
+      return { scored: 0, error: 'Could not compute drive times — check the Distance Matrix API.' };
+    }
+    apply((d) => {
+      const c = findCity(d);
+      updates.forEach((u, id) => {
+        const s = c.sites.find((x) => x.id === id);
+        if (!s) return;
+        if (u.hospital != null) s.scores.hospital = u.hospital;
+        if (u.airport != null) s.scores.airport = u.airport;
+        if (u.commute != null) s.scores.commute = u.commute;
+      });
+    });
+    return { scored: updates.size };
+  }, [city, apply]);
 
   /** The editable target for an id: a real site, or the office for "__office". */
   const siteTarget = (d: AppState, id: string) =>
@@ -611,6 +684,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fitAll,
     editSite,
     addSiteAt,
+    autoScoreCity,
     setSiteScore,
     setSiteText,
     setFact,

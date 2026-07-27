@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FACTORS } from '../data/factors';
 import { geocode, type GeocodeResult } from '../lib/geocode';
-import { scoreColor } from '../lib/scoring';
+import { isUnscored, scoreColor } from '../lib/scoring';
 import { useApp } from '../store';
 import { FactorIcon } from './FactorIcon';
 
@@ -149,6 +149,7 @@ function Ranking() {
         {city.name}, {city.state || ''} — ranked by weighted score
       </div>
       <SearchAddSite />
+      <AutoScore />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         {scored.map((s) => {
           const isSel = s.id === selId;
@@ -225,6 +226,24 @@ function Ranking() {
                       }}
                     >
                       Current
+                    </span>
+                  )}
+                  {!s.isOffice && isUnscored(s.scores) && (
+                    <span
+                      title="Still at neutral defaults — score it or use Auto-score"
+                      style={{
+                        flex: 'none',
+                        fontSize: 9,
+                        fontWeight: 800,
+                        letterSpacing: '.06em',
+                        textTransform: 'uppercase',
+                        color: 'var(--text-muted)',
+                        background: 'var(--tmdx-neutral-200)',
+                        padding: '2px 6px',
+                        borderRadius: 999,
+                      }}
+                    >
+                      Unscored
                     </span>
                   )}
                 </div>
@@ -392,6 +411,57 @@ function SearchAddSite() {
               drop one on the map
             </button>
             .
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Auto-score the access factors for every site from traffic-aware drive times. */
+function AutoScore() {
+  const { autoScoreCity } = useApp();
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<{ text: string; err: boolean } | null>(null);
+
+  async function run() {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const r = await autoScoreCity();
+      if (r.error) setStatus({ text: r.error, err: true });
+      else
+        setStatus({
+          text: `Scored transplant, airport & commute for ${r.scored} site${r.scored === 1 ? '' : 's'} from drive times.`,
+          err: false,
+        });
+    } catch (e) {
+      setStatus({ text: e instanceof Error ? e.message : 'Auto-score failed.', err: true });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <button
+        className="sx-btn sx-btn-sm sx-btn-secondary"
+        onClick={run}
+        disabled={busy}
+        style={{ width: '100%', justifyContent: 'center', opacity: busy ? 0.7 : 1 }}
+        title="Fill transplant, airport and staff-commute scores from traffic-aware drive times"
+      >
+        {busy ? 'Scoring…' : '⚡ Auto-score access from drive times'}
+      </button>
+      <div style={{ marginTop: 6, fontSize: 10.5, lineHeight: 1.4 }}>
+        {status ? (
+          <span style={{ color: status.err ? 'var(--tmdx-crimson)' : 'var(--tmdx-green)' }}>
+            {status.text}
+          </span>
+        ) : (
+          <span style={{ color: 'var(--text-muted)' }}>
+            Sets transplant, airport &amp; commute (closer = higher). You still set real estate,
+            climate &amp; crime.
           </span>
         )}
       </div>
