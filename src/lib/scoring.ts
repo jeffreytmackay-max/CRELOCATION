@@ -1,7 +1,7 @@
-import { FACTORS } from '../data/factors';
+import { FACTORS, activeFactorKeys } from '../data/factors';
 import type { City, FactorKey, ScoredSite, Scores, Site } from '../types';
 
-/** Score used when a site is missing a factor (e.g. crime on pre-existing data). */
+/** Score used when a site is missing a factor (e.g. a factor added after it was saved). */
 export const NEUTRAL_SCORE = 70;
 
 /** A factor's raw score, defaulting missing factors to a neutral value. */
@@ -9,9 +9,9 @@ export function scoreOf(scores: Scores, key: FactorKey): number {
   return scores[key] ?? NEUTRAL_SCORE;
 }
 
-/** True when every factor is still at the neutral default (site not yet scored). */
-export function isUnscored(scores: Scores): boolean {
-  return FACTORS.every((f) => scoreOf(scores, f.key) === NEUTRAL_SCORE);
+/** True when every active factor is still at the neutral default (site not yet scored). */
+export function isUnscored(scores: Scores, includeSpace = true): boolean {
+  return activeFactorKeys(includeSpace).every((k) => scoreOf(scores, k) === NEUTRAL_SCORE);
 }
 
 /**
@@ -22,17 +22,23 @@ export function minutesToScore(mins: number): number {
   return Math.max(10, Math.min(100, Math.round(100 - mins)));
 }
 
-/** Weights normalized so they sum to 1. Falls back to an even split. */
-export function normalize(weights: Scores): Record<FactorKey, number> {
-  const total = FACTORS.reduce((a, f) => a + (weights[f.key] ?? 0), 0);
+/**
+ * Weights normalized so the active factors sum to 1. Inactive factors (the
+ * real-estate factor when its toggle is off) get weight 0 so they never affect
+ * the composite. Falls back to an even split across the active factors.
+ */
+export function normalize(weights: Scores, includeSpace = true): Record<FactorKey, number> {
+  const keys = activeFactorKeys(includeSpace);
+  const total = keys.reduce((a, k) => a + (weights[k] ?? 0), 0);
   const n = {} as Record<FactorKey, number>;
-  FACTORS.forEach((f) => {
-    n[f.key] = total > 0 ? (weights[f.key] ?? 0) / total : 1 / FACTORS.length;
+  FACTORS.forEach((f) => (n[f.key] = 0));
+  keys.forEach((k) => {
+    n[k] = total > 0 ? (weights[k] ?? 0) / total : 1 / keys.length;
   });
   return n;
 }
 
-/** Composite = Σ(rawScore × normalizedWeight). */
+/** Composite = Σ(rawScore × normalizedWeight). Inactive factors carry weight 0. */
 export function composite(scores: Scores, normWeights: Record<FactorKey, number>): number {
   return FACTORS.reduce((a, f) => a + scoreOf(scores, f.key) * normWeights[f.key], 0);
 }
@@ -41,8 +47,8 @@ export function composite(scores: Scores, normWeights: Record<FactorKey, number>
  * Score and rank a city's candidate sites. When the office is enabled it is
  * injected as a pseudo-site ("__office", isOffice) and ranked alongside.
  */
-export function scoreCity(city: City, weights: Scores): ScoredSite[] {
-  const n = normalize(weights);
+export function scoreCity(city: City, weights: Scores, includeSpace = true): ScoredSite[] {
+  const n = normalize(weights, includeSpace);
   const list: Site[] = city.sites.slice();
   if (city.office.on) {
     list.push({

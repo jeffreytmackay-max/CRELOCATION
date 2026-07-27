@@ -1,19 +1,19 @@
 /** Domain model for the Site Selection Explorer. */
 
-export type FactorKey = 'hospital' | 'airport' | 'commute' | 'space' | 'risk' | 'crime';
+export type FactorKey = 'hospital' | 'airport' | 'commute' | 'space';
 
 /**
- * Raw 0–100 scores keyed by factor (higher is better).
- * The five original factors are always present; `crime` was added later, so
- * sites saved/exported before it may omit it — treated as a neutral score.
+ * Raw 0–100 scores keyed by factor (higher is better). `space` (real estate)
+ * is an opt-in factor: its score is always stored, but it only counts toward
+ * the composite when the "Real estate" toggle is on (see AppState.includeSpace).
+ * Older saved/exported states may carry retired factors (crime, risk) as extra
+ * keys — harmless and ignored.
  */
 export type Scores = {
   hospital: number;
   airport: number;
   commute: number;
   space: number;
-  risk: number;
-  crime?: number;
 };
 
 /** A label/value fact pair shown in the "Site facts" list. */
@@ -106,6 +106,8 @@ export type DriveTimes = Record<
 
 export interface AppState {
   weights: Scores;
+  /** Whether the opt-in "Real estate" factor counts toward the composite score. */
+  includeSpace: boolean;
   cityId: string;
   selectedSiteId: string | null;
   panelOpen: boolean;

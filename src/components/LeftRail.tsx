@@ -35,7 +35,7 @@ export function LeftRail() {
 }
 
 function FactorWeighting() {
-  const { state, norm, setWeight } = useApp();
+  const { state, norm, setWeight, includeSpace, toggleIncludeSpace } = useApp();
   return (
     <div style={{ padding: '22px 22px 18px' }}>
       <div
@@ -63,51 +63,80 @@ function FactorWeighting() {
         {FACTORS.map((f) => {
           const v = state.weights[f.key] ?? 0;
           const pct = Math.round(norm[f.key] * 100);
+          // Optional factors (real estate) only count when their box is checked.
+          const off = !!f.optional && !includeSpace;
           return (
             <div key={f.key}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <span
+                <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 30,
-                    height: 30,
-                    borderRadius: 9,
-                    flex: 'none',
-                    color: '#fff',
-                    background: f.color,
+                    gap: 10,
+                    flex: 1,
+                    minWidth: 0,
+                    opacity: off ? 0.5 : 1,
                   }}
                 >
-                  <FactorIcon factor={f.key} />
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
+                  <span
                     style={{
                       display: 'flex',
-                      alignItems: 'baseline',
-                      justifyContent: 'space-between',
-                      gap: 8,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 30,
+                      height: 30,
+                      borderRadius: 9,
+                      flex: 'none',
+                      color: '#fff',
+                      background: f.color,
                     }}
                   >
+                    <FactorIcon factor={f.key} />
+                  </span>
+                  <div style={{ minWidth: 0 }}>
                     <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-strong)' }}>
                       {f.short}
                     </span>
-                    <span
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 800,
-                        color: 'var(--text-strong)',
-                        fontVariantNumeric: 'tabular-nums',
-                      }}
-                    >
-                      {pct}%
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 11, lineHeight: 1.35, color: 'var(--text-muted)' }}>
-                    {f.desc}
+                    <div style={{ fontSize: 11, lineHeight: 1.35, color: 'var(--text-muted)' }}>
+                      {f.desc}
+                    </div>
                   </div>
                 </div>
+                {f.optional ? (
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      flex: 'none',
+                      cursor: 'pointer',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: off ? 'var(--text-muted)' : 'var(--text-strong)',
+                    }}
+                    title="Include real estate in the weighted analysis"
+                  >
+                    {off ? 'Include' : `${pct}%`}
+                    <input
+                      type="checkbox"
+                      checked={includeSpace}
+                      onChange={(e) => toggleIncludeSpace(e.target.checked)}
+                      style={{ width: 16, height: 16, accentColor: f.color, cursor: 'pointer' }}
+                    />
+                  </label>
+                ) : (
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 800,
+                      color: 'var(--text-strong)',
+                      fontVariantNumeric: 'tabular-nums',
+                      flex: 'none',
+                    }}
+                  >
+                    {pct}%
+                  </span>
+                )}
               </div>
               <input
                 className="sx-range"
@@ -116,8 +145,11 @@ function FactorWeighting() {
                 max={100}
                 step={1}
                 value={v}
+                disabled={off}
                 onChange={(e) => setWeight(f.key, Number(e.target.value))}
                 style={{
+                  opacity: off ? 0.5 : 1,
+                  cursor: off ? 'not-allowed' : 'pointer',
                   background: `linear-gradient(90deg, ${f.color} 0%, ${f.color} ${v}%, #e3dddb ${v}%, #e3dddb 100%)`,
                 }}
               />
@@ -130,7 +162,7 @@ function FactorWeighting() {
 }
 
 function Ranking() {
-  const { scored, selId, city, selectSite } = useApp();
+  const { scored, selId, city, selectSite, includeSpace } = useApp();
   if (!city) return null;
   return (
     <div style={{ padding: '20px 22px 26px' }}>
@@ -228,7 +260,7 @@ function Ranking() {
                       Current
                     </span>
                   )}
-                  {!s.isOffice && isUnscored(s.scores) && (
+                  {!s.isOffice && isUnscored(s.scores, includeSpace) && (
                     <span
                       title="Still at neutral defaults — score it or use Auto-score"
                       style={{
@@ -418,35 +450,23 @@ function SearchAddSite() {
   );
 }
 
-/** Auto-score the access factors (drive times) and crime (FBI) for every site. */
+/** Auto-score the access factors (transplant / airport / staff commute) from drive times. */
 function AutoScore() {
-  const { autoScoreCity, autoScoreCrime } = useApp();
+  const { autoScoreCity } = useApp();
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ text: string; err: boolean } | null>(null);
 
   async function run() {
     setBusy(true);
     setStatus(null);
-    // Drive-time (Google) and crime (FBI) run independently — one can succeed
-    // even if the other's API isn't configured.
-    const [access, crime] = await Promise.all([
-      autoScoreCity().catch((e) => ({ scored: 0, error: e?.message || 'Auto-score failed.' })),
-      autoScoreCrime().catch((e) => ({ scored: 0, error: e?.message || 'Crime lookup failed.' })),
-    ]);
-    const ok: string[] = [];
-    if (access.scored) ok.push(`transplant, airport & commute (${access.scored})`);
-    if (crime.scored) ok.push(`crime (${crime.scored})`);
-    const problems: string[] = [];
-    if (!access.scored && access.error) problems.push(`Access: ${access.error}`);
-    if (!crime.scored && crime.error) problems.push(`Crime: ${crime.error}`);
-
-    if (ok.length) {
-      setStatus({
-        text: `Scored ${ok.join(' and ')}.${problems.length ? ` (${problems.join(' · ')})` : ''}`,
-        err: false,
-      });
+    const access = await autoScoreCity().catch((e) => ({
+      scored: 0,
+      error: e?.message || 'Auto-score failed.',
+    }));
+    if (access.scored) {
+      setStatus({ text: `Scored transplant, airport & commute (${access.scored}).`, err: false });
     } else {
-      setStatus({ text: problems.join(' · ') || 'Nothing to score yet.', err: true });
+      setStatus({ text: access.error || 'Nothing to score yet.', err: true });
     }
     setBusy(false);
   }
@@ -458,9 +478,9 @@ function AutoScore() {
         onClick={run}
         disabled={busy}
         style={{ width: '100%', justifyContent: 'center', opacity: busy ? 0.7 : 1 }}
-        title="Fill transplant, airport, staff-commute (drive times) and crime (FBI) scores"
+        title="Fill transplant, airport and staff-commute scores from traffic-aware drive times"
       >
-        {busy ? 'Scoring…' : '⚡ Auto-score from drive times + crime'}
+        {busy ? 'Scoring…' : '⚡ Auto-score from drive times'}
       </button>
       <div style={{ marginTop: 6, fontSize: 10.5, lineHeight: 1.4 }}>
         {status ? (
@@ -469,8 +489,8 @@ function AutoScore() {
           </span>
         ) : (
           <span style={{ color: 'var(--text-muted)' }}>
-            Sets transplant, airport &amp; commute (drive times) and crime (FBI, by city). You
-            still set real estate &amp; climate.
+            Sets transplant, airport &amp; commute from traffic-aware drive times. Real estate is
+            set by hand when enabled.
           </span>
         )}
       </div>

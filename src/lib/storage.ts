@@ -9,6 +9,7 @@ export const STORE_KEY = 'tmdx_site_explorer_v3';
 export function freshState(): AppState {
   return {
     weights: { ...DEFAULT_WEIGHTS },
+    includeSpace: false,
     cityId: '',
     selectedSiteId: null,
     panelOpen: false,
@@ -25,6 +26,8 @@ export function loadState(): AppState {
     if (raw) {
       const loaded = JSON.parse(raw) as AppState;
       if (!loaded.cities) loaded.cities = [];
+      // Real-estate is opt-in; default off for states saved before the toggle.
+      if (typeof loaded.includeSpace !== 'boolean') loaded.includeSpace = false;
       return loaded;
     }
   } catch {

@@ -14,12 +14,17 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
 
 ## Features
 
-- **Live weighted scoring.** Six factor sliders (transplant centers, airport
-  access, staff commute, real-estate supply, climate/regulatory risk, crime &
-  safety) write raw 0–100 weights that are normalized to 100%. Composite =
-  Σ(rawFactorScore × normalizedWeight). Changing any slider re-scores, re-ranks,
-  and re-sizes/re-colors the map pins instantly. (Sites saved before a factor
-  existed treat it as a neutral score until set.)
+- **Live weighted scoring.** Factor sliders (transplant centers, airport access,
+  staff commute, and an optional real-estate supply) write raw 0–100 weights that
+  are normalized to 100%. Composite = Σ(rawFactorScore × normalizedWeight).
+  Changing any slider re-scores, re-ranks, and re-sizes/re-colors the map pins
+  instantly. (Sites saved before a factor existed treat it as a neutral score
+  until set.)
+- **Optional real-estate factor.** Real-estate supply is opt-in: tick its
+  checkbox in the weighting rail to include it in the analysis (there's no live
+  CRE data feed, so its score is entered by hand per site). Unchecked, it's
+  excluded from the composite and the weights renormalize across the remaining
+  factors.
 - **Interactive map.** Pannable OpenStreetMap basemap with score-scaled candidate
   pins, transplant-center and airport markers, and an optional office diamond.
   Click a pin or a ranking row to select a site. **Fit all sites** zooms/pans to
@@ -37,14 +42,10 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   (asking rent, available space, …) — for candidate sites and the office. This is
   how you put in real figures, since there's no live real-estate data feed.
 - **Auto-score factors.** New sites start at a neutral 70 (flagged **Unscored**
-  in the ranking). **Auto-score from drive times + crime** fills five factors for
-  every site: transplant-center, airport-access and staff-commute from
-  traffic-aware Google drive times (closer = higher, typical weekday-8am), and
-  **crime & safety** from the **FBI Crime Data Explorer** (nearest reporting
-  agency's violent+property rate per 100k, by city). Real-estate supply and
-  climate risk are still set by hand. The two data sources run independently, so
-  one works even if the other's key isn't configured. Crime data is
-  jurisdiction-level, so it differentiates municipalities, not neighborhoods.
+  in the ranking). **Auto-score from drive times** fills the access factors for
+  every site — transplant-center, airport-access and staff-commute from
+  traffic-aware Google drive times (closer = higher, typical weekday-8am).
+  Real-estate supply, when enabled, is set by hand.
 - **Office benchmark.** Enable the current office to inject it into the ranked
   list as a "Current" pseudo-site scored on the same factors.
 - **Add on map.** Drop new candidate sites, transplant centers, airports, or
@@ -103,7 +104,6 @@ npm run preview  # preview the production build
 | Variable              | Where            | Purpose                                                        |
 | --------------------- | ---------------- | -------------------------------------------------------------- |
 | `GOOGLE_MAPS_API_KEY` | server-side only | Drive-time auto-fill (`/api/drivetimes`, Distance Matrix API), Find-nearby discovery (`/api/places`, Places API), and search-to-add (`/api/geocode`, Geocoding API). Never exposed to the browser. |
-| `FBI_CRIME_API_KEY`   | server-side only | Crime auto-score (`/api/crime`, FBI Crime Data Explorer). Optional — omit to skip crime auto-score. Free key from [api.data.gov/signup](https://api.data.gov/signup/). |
 
 **Vercel:** Project → Settings → Environment Variables → add the keys
 (all environments) → redeploy. In the [Google Cloud console](https://console.cloud.google.com/),
@@ -123,7 +123,6 @@ api/
   drivetimes.js         # Vercel function: Google Distance Matrix proxy (traffic)
   places.js             # Vercel function: Google Places proxy (find nearby refs)
   geocode.js            # Vercel function: Google Geocoding proxy (search-to-add)
-  crime.js              # Vercel function: FBI Crime Data Explorer proxy
 src/
   main.tsx              # entry
   App.tsx               # layout: header, nav, three columns, overlays
@@ -137,7 +136,6 @@ src/
     drivetimes.ts       # client for /api/drivetimes + departure-time presets
     places.ts           # client for /api/places (find nearby)
     geocode.ts          # client for /api/geocode (search-to-add)
-    crime.ts            # client for /api/crime (FBI) + rate→score
   components/
     Header.tsx          # brand + data actions
     CityNav.tsx         # city tabs + reference-points toggle

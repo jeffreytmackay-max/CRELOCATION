@@ -13,7 +13,6 @@ import { DEFAULT_WEIGHTS } from './data/factors';
 import { minutesToScore, normalize, scoreCity } from './lib/scoring';
 import { geocode } from './lib/geocode';
 import { departureTimestamp, matrix } from './lib/drivetimes';
-import { crimeRateToScore, fetchCrimeRates } from './lib/crime';
 import type { DiscoveredPlace } from './lib/places';
 import {
   exportState,
@@ -66,8 +65,6 @@ export interface Store {
    * factors untouched. Returns how many sites were updated (or an error).
    */
   autoScoreCity: () => Promise<{ scored: number; error?: string }>;
-  /** Auto-score the crime factor from the FBI Crime Data Explorer (by state). */
-  autoScoreCrime: () => Promise<{ scored: number; error?: string }>;
 
   /* ---- Per-site editing (works for a real site or the "__office" benchmark) ---- */
   setSiteScore: (id: string, key: FactorKey, val: number) => void;
@@ -78,6 +75,10 @@ export interface Store {
 
   setWeight: (key: FactorKey, val: number) => void;
   resetWeights: () => void;
+  /** Whether the opt-in real-estate factor counts toward the score. */
+  includeSpace: boolean;
+  /** Toggle (or set) whether real estate is included in the analysis. */
+  toggleIncludeSpace: (on?: boolean) => void;
   selectCity: (id: string) => void;
   deleteCity: (id: string) => void;
   selectSite: (id: string) => void;
@@ -171,10 +172,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     () => state.cities.find((c) => c.id === state.cityId) ?? state.cities[0],
     [state.cities, state.cityId],
   );
-  const norm = useMemo(() => normalize(state.weights), [state.weights]);
+  const norm = useMemo(
+    () => normalize(state.weights, state.includeSpace),
+    [state.weights, state.includeSpace],
+  );
   const scored = useMemo(
-    () => (city ? scoreCity(city, state.weights) : []),
-    [city, state.weights],
+    () => (city ? scoreCity(city, state.weights, state.includeSpace) : []),
+    [city, state.weights, state.includeSpace],
   );
   const selId = useMemo(() => {
     const stored = state.selectedSiteId;
@@ -195,6 +199,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
   const resetWeights = useCallback(
     () => apply((d) => void (d.weights = { ...DEFAULT_WEIGHTS })),
+    [apply],
+  );
+  const toggleIncludeSpace = useCallback(
+    (on?: boolean) =>
+      apply((d) => void (d.includeSpace = on === undefined ? !d.includeSpace : on)),
     [apply],
   );
 
@@ -274,7 +283,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           short,
           lat,
           lng,
-          scores: { hospital: 70, airport: 70, commute: 70, space: 70, risk: 70, crime: 70 },
+          scores: { hospital: 70, airport: 70, commute: 70, space: 70 },
           note: 'Added by search — adjust its factor scores and facts.',
           facts: [
             ['Asking rent', '—'],
@@ -355,39 +364,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
     });
     return { scored: updates.size };
-  }, [city, apply]);
-
-  const autoScoreCrime = useCallback(async (): Promise<{ scored: number; error?: string }> => {
-    if (!city) return { scored: 0, error: 'No city selected.' };
-    if (!/^[A-Za-z]{2}$/.test((city.state || '').trim())) {
-      return { scored: 0, error: 'Set the city’s 2-letter state to auto-score crime.' };
-    }
-    const sites = city.sites
-      .filter((s) => s.lat != null && s.lng != null)
-      .map((s) => ({ id: s.id, lat: s.lat, lng: s.lng }));
-    if (!sites.length) return { scored: 0, error: 'Add candidate sites first.' };
-
-    let results;
-    try {
-      results = await fetchCrimeRates(city.state.trim(), sites);
-    } catch (e) {
-      return { scored: 0, error: e instanceof Error ? e.message : 'Crime lookup failed.' };
-    }
-    const scoreById = new Map<string, number>();
-    results.forEach((r) => {
-      if (r.rate != null) scoreById.set(r.id, crimeRateToScore(r.rate));
-    });
-    if (!scoreById.size) {
-      return { scored: 0, error: 'No crime rates returned for these locations.' };
-    }
-    apply((d) => {
-      const c = findCity(d);
-      scoreById.forEach((score, id) => {
-        const s = c.sites.find((x) => x.id === id);
-        if (s) s.scores.crime = score;
-      });
-    });
-    return { scored: scoreById.size };
   }, [city, apply]);
 
   /** The editable target for an id: a real site, or the office for "__office". */
@@ -598,7 +574,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             short: nm || 'New site',
             lat,
             lng,
-            scores: { hospital: 70, airport: 70, commute: 70, space: 70, risk: 70, crime: 70 },
+            scores: { hospital: 70, airport: 70, commute: 70, space: 70 },
             note: 'New candidate site — adjust its factor scores and facts.',
             facts: [
               ['Asking rent', '—'],
@@ -669,7 +645,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             address: '',
             lat: clat,
             lng: clng,
-            scores: { hospital: 70, airport: 70, commute: 70, space: 70, risk: 70, crime: 70 },
+            scores: { hospital: 70, airport: 70, commute: 70, space: 70 },
             note: 'Your current office — scored on the same factors as a benchmark for the candidate sites.',
             facts: [['Status', 'Current office']],
           },
@@ -721,7 +697,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     editSite,
     addSiteAt,
     autoScoreCity,
-    autoScoreCrime,
     setSiteScore,
     setSiteText,
     setFact,
@@ -729,6 +704,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     removeFact,
     setWeight,
     resetWeights,
+    includeSpace: state.includeSpace,
+    toggleIncludeSpace,
     selectCity,
     deleteCity,
     selectSite,

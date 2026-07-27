@@ -41,6 +41,7 @@ export function RightRail() {
     setFact,
     addFact,
     removeFact,
+    includeSpace,
   } = useApp();
   const [editing, setEditing] = useState(false);
   const s = scored.find((x) => x.id === selId);
@@ -243,6 +244,9 @@ export function RightRail() {
                     <span style={{ width: 9, height: 9, borderRadius: '50%', flex: 'none', background: f.color }} />
                     <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: 'var(--text-strong)' }}>
                       {f.label}
+                      {f.optional && !includeSpace && (
+                        <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}> · off</span>
+                      )}
                     </span>
                     <input
                       className="sx-inp"
@@ -265,7 +269,8 @@ export function RightRail() {
           <>
           <div style={{ ...sectionLabel, marginBottom: 14 }}>Factor breakdown</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {FACTORS.map((f) => ({
+            {FACTORS.filter((f) => !f.optional || includeSpace)
+              .map((f) => ({
               label: f.label,
               color: f.color,
               raw: scoreOf(s.scores, f.key),
