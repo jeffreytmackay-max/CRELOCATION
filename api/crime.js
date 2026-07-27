@@ -40,6 +40,26 @@ async function firstJson(urls) {
   return null;
 }
 
+/**
+ * Recursively collect agency-like objects (anything with a string `ori`) from
+ * an arbitrary CDE/SAPI response. The CDE agency-by-state endpoint wraps its
+ * list in a state-keyed object (`{ "CA": [ {…}, … ] }`), while SAPI returns a
+ * flat array or `{ results: [...] }`; this walks whatever shape comes back.
+ */
+function collectAgencies(node, out = [], depth = 0) {
+  if (!node || typeof node !== 'object' || depth > 4) return out;
+  if (typeof node.ori === 'string') {
+    out.push(node);
+    return out;
+  }
+  if (Array.isArray(node)) {
+    for (const v of node) collectAgencies(v, out, depth + 1);
+  } else {
+    for (const v of Object.values(node)) collectAgencies(v, out, depth + 1);
+  }
+  return out;
+}
+
 /** From a { key: { year: value } } object, the most-recent year's value summed across keys. */
 function latestNested(obj) {
   if (!obj || typeof obj !== 'object') return null;
@@ -94,11 +114,53 @@ async function offense(ori, slug, key) {
 }
 
 export default async function handler(req, res) {
+  const key = process.env.FBI_CRIME_API_KEY;
+
+  // Debug affordance: GET /api/crime?state=CA&debug=1 returns the shape of the
+  // FBI agency response (public data, no key leaked) so response-parsing can be
+  // diagnosed from a browser without POSTing. Remove once crime data is stable.
+  if (req.method === 'GET' && req.query && req.query.debug) {
+    if (!key) return res.status(500).json({ error: 'Missing FBI_CRIME_API_KEY.' });
+    const dbgState = String(req.query.state || 'CA').trim().toUpperCase();
+    const cdeUrl = `https://api.usa.gov/crime/fbi/cde/agency/byStateAbbr/${dbgState}?API_KEY=${key}`;
+    const sapiUrl = `https://api.usa.gov/crime/fbi/sapi/api/agencies/byStateAbbr/${dbgState}?API_KEY=${key}&api_key=${key}`;
+    const out = {};
+    for (const [name, url] of [['cde', cdeUrl], ['sapi', sapiUrl]]) {
+      try {
+        const r = await fetch(url);
+        let sample = null;
+        try {
+          const j = await r.json();
+          const ags = collectAgencies(j);
+          sample = {
+            topType: Array.isArray(j) ? 'array' : typeof j,
+            topKeys: j && typeof j === 'object' && !Array.isArray(j) ? Object.keys(j).slice(0, 8) : undefined,
+            agenciesFound: ags.length,
+            firstAgencyKeys: ags[0] ? Object.keys(ags[0]) : undefined,
+            firstAgency: ags[0]
+              ? {
+                  ori: ags[0].ori,
+                  name: ags[0].agency_name || ags[0].name,
+                  lat: ags[0].latitude ?? ags[0].lat,
+                  lng: ags[0].longitude ?? ags[0].lng,
+                }
+              : undefined,
+          };
+        } catch {
+          sample = { note: 'response was not JSON' };
+        }
+        out[name] = { status: r.status, ok: r.ok, ...sample };
+      } catch (e) {
+        out[name] = { error: String(e && e.message ? e.message : e) };
+      }
+    }
+    return res.status(200).json({ state: dbgState, ...out });
+  }
+
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed. Use POST.' });
   }
-  const key = process.env.FBI_CRIME_API_KEY;
   if (!key) {
     return res.status(500).json({
       error:
@@ -134,15 +196,13 @@ export default async function handler(req, res) {
       error: `FBI agency lookup failed for ${state} (check the API key is enabled at api.data.gov).`,
     });
   }
-  const rawList = Array.isArray(agData)
-    ? agData
-    : Array.isArray(agData.results)
-      ? agData.results
-      : typeof agData === 'object'
-        ? Object.values(agData)
-        : [];
+  const rawList = collectAgencies(agData);
+  if (!rawList.length) {
+    return res.status(502).json({
+      error: `FBI returned no agencies for ${state} (unexpected response shape). Try /api/crime?state=${state}&debug=1.`,
+    });
+  }
   const agencies = rawList
-    .filter((a) => a && typeof a === 'object')
     .map((a) => ({
       ori: a.ori,
       name: a.agency_name || a.name || a.ori,
@@ -151,7 +211,9 @@ export default async function handler(req, res) {
     }))
     .filter((a) => a.ori && Number.isFinite(a.lat) && Number.isFinite(a.lng));
   if (!agencies.length) {
-    return res.status(502).json({ error: `No geolocated FBI agencies found for ${state}.` });
+    return res.status(502).json({
+      error: `FBI agencies for ${state} have no coordinates (found ${rawList.length} without lat/lng). Try /api/crime?state=${state}&debug=1.`,
+    });
   }
 
   // 2) Nearest agency per site.
