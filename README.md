@@ -29,6 +29,14 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   pins, transplant-center and airport markers, and an optional office diamond.
   Click a pin or a ranking row to select a site. **Fit all sites** zooms/pans to
   frame every candidate across the greater metro at once.
+- **On-map location search.** A search box on the map geocodes any place or
+  address (Google Geocoding API), flies there, and drops a blue pin — for looking
+  around a real location, with a one-click **Add as candidate site**.
+- **Suggest ideal office location.** Computes the point that best balances the
+  weighted factors — nearest transplant center, nearest airport, and headcount-
+  weighted staff commute — across your reference points and plotted staff, and
+  marks it with a gold ★. It's a fast straight-line estimate (weighted by your
+  sliders); add it as a candidate and Auto-score it for real traffic-aware times.
 - **Greater-metro exploration.** Candidate pins are free-form — drop them
   anywhere in the metro, not just the core city. Each candidate carries an
   editable **city / area** label (e.g. "The Woodlands, TX") shown in the ranking
@@ -66,7 +74,11 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   headcount) per metro, with a live total — context for the staff-commute factor.
   Managed in the Reference points panel. **Plot on map** geocodes each entry
   (Google Geocoding API) and shows it as a green headcount marker; a "Staff
-  locations" layer toggle shows/hides them.
+  locations" layer toggle shows/hides them. **Import from spreadsheet** bulk-loads
+  employees from an `.xlsx` / `.xls` / `.csv` file — columns are matched by header
+  (city / state / ZIP / headcount, with synonyms) and inferred from the data when
+  headers are missing. The parser (SheetJS) is code-split, so it only loads when
+  you actually import.
 - **Blank slate.** The app starts empty — add cities from scratch. The Add-city
   dialog takes a name, state and **ZIP**, and geocodes the map center from them
   (lat/long optional for exact placement). An empty state prompts for the first
@@ -135,7 +147,8 @@ src/
     storage.ts          # load / save / export / import
     drivetimes.ts       # client for /api/drivetimes + departure-time presets
     places.ts           # client for /api/places (find nearby)
-    geocode.ts          # client for /api/geocode (search-to-add)
+    geocode.ts          # client for /api/geocode (search-to-add + map search)
+    staffImport.ts      # parse an uploaded .xlsx/.csv of staff (SheetJS, lazy)
   components/
     Header.tsx          # brand + data actions
     CityNav.tsx         # city tabs + reference-points toggle

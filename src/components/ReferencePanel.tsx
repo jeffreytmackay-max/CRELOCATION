@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { geocode } from '../lib/geocode';
 import { findNearby } from '../lib/places';
+import { parseStaffFile } from '../lib/staffImport';
 import { useApp } from '../store';
 
 const cbStyle: React.CSSProperties = {
@@ -31,6 +32,7 @@ export function ReferencePanel() {
     editStaff,
     removeStaff,
     setStaffCoords,
+    importStaff,
     addDiscoveredRefs,
     isMobile,
   } = useApp();
@@ -39,6 +41,36 @@ export function ReferencePanel() {
   const [status, setStatus] = useState<FindStatus | null>(null);
   const [plotBusy, setPlotBusy] = useState(false);
   const [plotStatus, setPlotStatus] = useState<{ text: string; err: boolean } | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importStatus, setImportStatus] = useState<{ text: string; err: boolean } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function onImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // let the same file be picked again later
+    if (!file) return;
+    setImportBusy(true);
+    setImportStatus(null);
+    try {
+      const rows = await parseStaffFile(file);
+      if (!rows.length) {
+        setImportStatus({
+          text: 'No staff rows found — the sheet needs city / state / ZIP columns.',
+          err: true,
+        });
+      } else {
+        const n = importStaff(rows);
+        setImportStatus({
+          text: `Imported ${n} row${n === 1 ? '' : 's'} — click “Plot on map” to place them.`,
+          err: false,
+        });
+      }
+    } catch (err) {
+      setImportStatus({ text: err instanceof Error ? err.message : 'Import failed.', err: true });
+    } finally {
+      setImportBusy(false);
+    }
+  }
 
   async function plotStaff() {
     if (!city) return;
@@ -343,6 +375,34 @@ export function ReferencePanel() {
           <div style={{ fontSize: 11, lineHeight: 1.4, color: 'var(--text-muted)', margin: '-4px 0 10px' }}>
             Employees by home city / ZIP — context for the staff-commute factor.
           </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls,.csv,.tsv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            onChange={onImportFile}
+            style={{ display: 'none' }}
+          />
+          <button
+            className="sx-btn sx-btn-sm sx-btn-secondary"
+            onClick={() => fileRef.current?.click()}
+            disabled={importBusy}
+            style={{ width: '100%', justifyContent: 'center', marginBottom: 8, opacity: importBusy ? 0.7 : 1 }}
+            title="Upload a spreadsheet of employees (city / state / ZIP columns)"
+          >
+            {importBusy ? 'Importing…' : '⬆ Import from spreadsheet'}
+          </button>
+          {importStatus && (
+            <div
+              style={{
+                fontSize: 10.5,
+                lineHeight: 1.4,
+                margin: '0 0 10px',
+                color: importStatus.err ? 'var(--tmdx-crimson)' : 'var(--tmdx-green)',
+              }}
+            >
+              {importStatus.text}
+            </div>
+          )}
           {plotStatus && (
             <div
               style={{

@@ -1,6 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import L from 'leaflet';
-import { MapContainer, Marker, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet';
+import {
+  MapContainer,
+  Marker,
+  TileLayer,
+  Tooltip,
+  ZoomControl,
+  useMap,
+  useMapEvents,
+} from 'react-leaflet';
+import { geocode, type GeocodeResult } from '../lib/geocode';
 import { scoreColor } from '../lib/scoring';
 import { useApp } from '../store';
 import { Legend } from './Legend';
@@ -74,6 +83,32 @@ function staffIcon(count: number) {
     iconAnchor: [d / 2, d / 2],
   });
 }
+/** Blue teardrop pin marking a location returned by the on-map search. */
+function foundIcon() {
+  return L.divIcon({
+    className: '',
+    html: `<svg width="28" height="38" viewBox="0 0 28 38" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 1C7 1 1.5 6.5 1.5 13.4 1.5 22.6 14 37 14 37s12.5-14.4 12.5-23.6C26.5 6.5 21 1 14 1z" fill="#2b6cb0" stroke="#fff" stroke-width="2.5"/>
+      <circle cx="14" cy="13.4" r="5.2" fill="#fff"/>
+    </svg>`,
+    iconSize: [28, 38],
+    iconAnchor: [14, 37],
+  });
+}
+/** Gold star pin marking the weighted-optimal office suggestion. */
+function suggestIcon() {
+  return L.divIcon({
+    className: '',
+    html: `<div style="position:relative;width:34px;height:44px">
+      <svg width="34" height="44" viewBox="0 0 34 44" xmlns="http://www.w3.org/2000/svg">
+        <path d="M17 1C8.7 1 2 7.7 2 16c0 11 15 27 15 27s15-16 15-27C32 7.7 25.3 1 17 1z" fill="#dd9b1f" stroke="#fff" stroke-width="2.5"/>
+      </svg>
+      <div style="position:absolute;top:7px;left:0;width:34px;text-align:center;color:#fff;font-size:16px;line-height:1">★</div>
+    </div>`,
+    iconSize: [34, 44],
+    iconAnchor: [17, 43],
+  });
+}
 function siteIcon(score: number, color: string, selected: boolean, d: number) {
   const html = `<div style="position:relative"><div class="sx-mark" style="width:${d}px;height:${d}px;border-radius:50%;background:${color};border:${
     selected ? '3px solid #9d2235' : '2.5px solid #fff'
@@ -83,7 +118,9 @@ function siteIcon(score: number, color: string, selected: boolean, d: number) {
 
 /** Center column: interactive Leaflet map with all marker layers + overlays. */
 export function MapView() {
-  const { city, state, scored, selId, selectSite, addMode, cancelAdd, fitAll } = useApp();
+  const { city, state, scored, selId, selectSite, addMode, cancelAdd, fitAll, suggestion } =
+    useApp();
+  const [found, setFound] = useState<GeocodeResult | null>(null);
   if (!city) return null;
   const Ly = state.layers;
 
@@ -92,7 +129,7 @@ export function MapView() {
       <MapContainer
         center={city.center}
         zoom={city.zoom}
-        zoomControl
+        zoomControl={false}
         attributionControl
         style={{ position: 'absolute', inset: 0 }}
       >
@@ -101,7 +138,24 @@ export function MapView() {
           maxZoom={19}
           attribution="© OpenStreetMap contributors"
         />
+        <ZoomControl position="bottomright" />
         <MapController />
+
+        {found && (
+          <Marker position={[found.lat, found.lng]} icon={foundIcon()} zIndexOffset={2000}>
+            <Tooltip permanent direction="top" offset={[0, -34]} className="sx-tt sx-tt-ref">
+              {found.name.split(',').slice(0, 2).join(',')}
+            </Tooltip>
+          </Marker>
+        )}
+
+        {suggestion && (
+          <Marker position={[suggestion.lat, suggestion.lng]} icon={suggestIcon()} zIndexOffset={2500}>
+            <Tooltip permanent direction="top" offset={[0, -40]} className="sx-tt sx-tt-ref">
+              Suggested office · ≈{suggestion.score}
+            </Tooltip>
+          </Marker>
+        )}
 
         {Ly.centers &&
           city.centers.map((c) =>
@@ -212,13 +266,15 @@ export function MapView() {
         </div>
       )}
 
+      {!addMode && <MapSearch found={found} setFound={setFound} />}
+
       <div
         style={{
           position: 'absolute',
-          top: 14,
+          top: addMode ? 14 : 66,
           left: 14,
-          zIndex: 800,
-          padding: '11px 15px',
+          zIndex: 799,
+          padding: '9px 13px',
           borderRadius: 12,
           background: 'rgba(255,255,255,.94)',
           backdropFilter: 'blur(6px)',
@@ -273,6 +329,207 @@ export function MapView() {
       </button>
 
       <Legend />
+    </div>
+  );
+}
+
+/** Glassy on-map search: geocode a place, fly there, drop a pin, optionally add it. */
+function MapSearch({
+  found,
+  setFound,
+}: {
+  found: GeocodeResult | null;
+  setFound: (r: GeocodeResult | null) => void;
+}) {
+  const { flyTo, addSiteAt } = useApp();
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState<GeocodeResult[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function search() {
+    const query = q.trim();
+    if (!query) return;
+    setBusy(true);
+    setError(null);
+    setResults(null);
+    try {
+      const list = await geocode(query);
+      if (!list.length) setError('No matches — try a more specific place or address.');
+      else if (list.length === 1) go(list[0]);
+      else setResults(list);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Search failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function go(r: GeocodeResult) {
+    flyTo(r.lat, r.lng, 14);
+    setFound(r);
+    setResults(null);
+    setError(null);
+    setQ(r.name);
+  }
+
+  function clear() {
+    setFound(null);
+    setResults(null);
+    setError(null);
+    setQ('');
+  }
+
+  const panel: React.CSSProperties = {
+    marginTop: 6,
+    borderRadius: 10,
+    overflow: 'hidden',
+    background: '#fff',
+    border: '1px solid var(--border-subtle)',
+    boxShadow: 'var(--shadow-sm)',
+  };
+
+  return (
+    <div style={{ position: 'absolute', top: 14, left: 14, right: 138, maxWidth: 380, zIndex: 802 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '0 8px 0 12px',
+          height: 40,
+          borderRadius: 12,
+          background: 'rgba(255,255,255,.96)',
+          backdropFilter: 'blur(6px)',
+          border: '1px solid var(--border-subtle)',
+          boxShadow: 'var(--shadow-sm)',
+        }}
+      >
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--text-muted)"
+          strokeWidth={2.4}
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') search();
+            if (e.key === 'Escape') clear();
+          }}
+          placeholder="Search for a place or address…"
+          aria-label="Search the map for a place or address"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            border: 'none',
+            outline: 'none',
+            background: 'transparent',
+            fontFamily: 'var(--font-sans)',
+            fontSize: 13,
+            color: 'var(--text-strong)',
+          }}
+        />
+        {(q || found) && (
+          <button
+            onClick={clear}
+            title="Clear"
+            aria-label="Clear search"
+            style={{
+              flex: 'none',
+              width: 22,
+              height: 22,
+              borderRadius: 999,
+              border: 'none',
+              cursor: 'pointer',
+              background: 'var(--tmdx-neutral-200)',
+              color: 'var(--text-body)',
+              fontSize: 13,
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
+        )}
+        <button
+          onClick={search}
+          disabled={busy}
+          className="sx-btn sx-btn-sm sx-btn-primary"
+          style={{ flex: 'none', opacity: busy ? 0.7 : 1 }}
+        >
+          {busy ? '…' : 'Search'}
+        </button>
+      </div>
+
+      {error && (
+        <div
+          style={{
+            ...panel,
+            padding: '9px 12px',
+            fontSize: 12,
+            color: 'var(--tmdx-crimson)',
+            background: '#fff',
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {results && results.length > 0 && (
+        <div style={panel}>
+          {results.map((r, i) => (
+            <button
+              key={i}
+              onClick={() => go(r)}
+              style={{
+                display: 'block',
+                width: '100%',
+                textAlign: 'left',
+                padding: '9px 12px',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 12.5,
+                color: 'var(--text-strong)',
+                background: '#fff',
+                border: 'none',
+                borderTop: i ? '1px solid var(--border-subtle)' : 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {r.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {found && !results && (
+        <div style={{ ...panel, padding: 10 }}>
+          <div style={{ fontSize: 12.5, color: 'var(--text-strong)', marginBottom: 8 }}>{found.name}</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="sx-btn sx-btn-sm sx-btn-primary"
+              onClick={() => {
+                addSiteAt(found.name, found.lat, found.lng);
+                clear();
+              }}
+              style={{ flex: 1, justifyContent: 'center' }}
+              title="Add this location as a candidate site"
+            >
+              + Add as candidate site
+            </button>
+            <button className="sx-btn sx-btn-sm sx-btn-secondary" onClick={clear} style={{ flex: 'none' }}>
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -182,6 +182,7 @@ function Ranking() {
       </div>
       <SearchAddSite />
       <AutoScore />
+      <SuggestLocation />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         {scored.map((s) => {
           const isSel = s.id === selId;
@@ -491,6 +492,63 @@ function AutoScore() {
           <span style={{ color: 'var(--text-muted)' }}>
             Sets transplant, airport &amp; commute from traffic-aware drive times. Real estate is
             set by hand when enabled.
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Suggest a weighted-optimal office location from reference points + staff. */
+function SuggestLocation() {
+  const { suggestOffice, suggestion, clearSuggestion, addSiteAt } = useApp();
+  const [error, setError] = useState<string | null>(null);
+
+  function run() {
+    setError(null);
+    const r = suggestOffice();
+    if (!r.ok) setError(r.error || 'Could not compute a suggestion.');
+  }
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <button
+        className="sx-btn sx-btn-sm sx-btn-secondary"
+        onClick={run}
+        style={{ width: '100%', justifyContent: 'center' }}
+        title="Find the point that best balances the weighted factors across your reference points and staff"
+      >
+        🎯 Suggest ideal office location
+      </button>
+      <div style={{ marginTop: 6, fontSize: 10.5, lineHeight: 1.4 }}>
+        {error ? (
+          <span style={{ color: 'var(--tmdx-crimson)' }}>{error}</span>
+        ) : suggestion ? (
+          <div>
+            <div style={{ color: 'var(--tmdx-green)' }}>
+              ⭐ Best spot marked on the map — ≈{suggestion.score} weighted access, optimized for{' '}
+              {suggestion.note}.
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 7 }}>
+              <button
+                className="sx-btn sx-btn-sm sx-btn-primary"
+                style={{ flex: 1, justifyContent: 'center' }}
+                onClick={() => {
+                  addSiteAt('Suggested office', suggestion.lat, suggestion.lng);
+                  clearSuggestion();
+                }}
+              >
+                + Add as candidate site
+              </button>
+              <button className="sx-btn sx-btn-sm sx-btn-secondary" onClick={clearSuggestion}>
+                Dismiss
+              </button>
+            </div>
+          </div>
+        ) : (
+          <span style={{ color: 'var(--text-muted)' }}>
+            Estimates the best location by straight-line proximity, weighted by your sliders. Plot
+            staff on the map to include commute. Auto-score the added site for real drive times.
           </span>
         )}
       </div>

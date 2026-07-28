@@ -26,6 +26,32 @@ import type { AddKind, AppState, City, FactorKey, ScoredSite } from './types';
 let idCounter = 0;
 const uid = (p: string) => `${p}${++idCounter}${Date.now()}`;
 
+/** Great-circle distance in km between two lat/lng points. */
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+/** A weighted-optimal office suggestion (from proximity, before real drive times). */
+export interface Suggestion {
+  lat: number;
+  lng: number;
+  score: number;
+  note: string;
+}
+export interface StaffImportRow {
+  city: string;
+  state: string;
+  zip: string;
+  employees: string;
+}
+
 export type MobileView = 'weights' | 'map' | 'details';
 
 export interface Store {
@@ -54,6 +80,8 @@ export interface Store {
   refreshMapSize: () => void;
   /** Zoom/pan the map to frame every candidate site (+ office when enabled). */
   fitAll: () => void;
+  /** Pan/zoom the map to a point (used by the on-map location search). */
+  flyTo: (lat: number, lng: number, zoom?: number) => void;
 
   /** Edit a field on a candidate site in the current city (ignores the office pseudo-site). */
   editSite: (id: string, field: 'area', v: string) => void;
@@ -65,6 +93,13 @@ export interface Store {
    * factors untouched. Returns how many sites were updated (or an error).
    */
   autoScoreCity: () => Promise<{ scored: number; error?: string }>;
+
+  /** A proximity-optimal office location suggestion, or null. */
+  suggestion: Suggestion | null;
+  /** Compute the weighted-best office location from reference points + staff. */
+  suggestOffice: () => { ok: boolean; error?: string };
+  /** Dismiss the current suggestion marker. */
+  clearSuggestion: () => void;
 
   /* ---- Per-site editing (works for a real site or the "__office" benchmark) ---- */
   setSiteScore: (id: string, key: FactorKey, val: number) => void;
@@ -103,6 +138,8 @@ export interface Store {
   removeStaff: (id: string) => void;
   /** Set a staff row's geocoded coordinates and reveal the staff map layer. */
   setStaffCoords: (id: string, lat: number, lng: number) => void;
+  /** Append staff rows parsed from an uploaded spreadsheet. Returns count added. */
+  importStaff: (rows: StaffImportRow[]) => number;
 
   /** Append discovered centers/airports, skipping near-duplicates. Returns count added. */
   addDiscoveredRefs: (kind: 'centers' | 'airports', items: DiscoveredPlace[]) => number;
@@ -143,6 +180,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [cityModalOpen, setCityModalOpen] = useState(false);
   const mapRef = useRef<LeafletMap | null>(null);
 
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [mobileView, setMobileView] = useState<MobileView>('weights');
   const [isMobile, setIsMobile] = useState<boolean>(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 820px)').matches,
@@ -158,6 +196,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     saveState(state);
   }, [state]);
+
+  // A suggestion is tied to the current city's data — drop it when the city changes.
+  useEffect(() => {
+    setSuggestion(null);
+  }, [state.cityId]);
 
   /** Immutable update via a mutable clone. */
   const apply = useCallback((mut: (draft: AppState) => void) => {
@@ -244,6 +287,107 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [apply, scored],
   );
+
+  const flyTo = useCallback((lat: number, lng: number, zoom?: number) => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.setView([lat, lng], zoom ?? Math.max(map.getZoom() ?? 12, 13));
+  }, []);
+
+  const clearSuggestion = useCallback(() => setSuggestion(null), []);
+
+  const suggestOffice = useCallback((): { ok: boolean; error?: string } => {
+    if (!city) return { ok: false, error: 'No city selected.' };
+    const centers = city.centers
+      .filter((c) => c.lat != null && c.lng != null)
+      .map((c) => ({ lat: c.lat, lng: c.lng }));
+    const airports = city.airports
+      .filter((a) => a.lat != null && a.lng != null)
+      .map((a) => ({ lat: a.lat, lng: a.lng }));
+    const staff = (city.staff ?? [])
+      .filter((s) => s.lat != null && s.lng != null)
+      .map((s) => ({ lat: s.lat as number, lng: s.lng as number, w: Math.max(1, parseInt(s.employees, 10) || 0) }));
+    const useHosp = centers.length > 0;
+    const useAir = airports.length > 0;
+    const useCommute = staff.length > 0;
+    if (!useHosp && !useAir && !useCommute) {
+      return {
+        ok: false,
+        error: 'Add transplant centers or airports, and plot staff on the map, to optimize.',
+      };
+    }
+
+    const w = state.weights;
+    const anchors = [...centers, ...airports, ...staff.map((s) => ({ lat: s.lat, lng: s.lng }))];
+    let minLat = Math.min(...anchors.map((a) => a.lat));
+    let maxLat = Math.max(...anchors.map((a) => a.lat));
+    let minLng = Math.min(...anchors.map((a) => a.lng));
+    let maxLng = Math.max(...anchors.map((a) => a.lng));
+    const padLat = (maxLat - minLat) * 0.12 + 0.03;
+    const padLng = (maxLng - minLng) * 0.12 + 0.03;
+    minLat -= padLat;
+    maxLat += padLat;
+    minLng -= padLng;
+    maxLng += padLng;
+
+    // Convert a straight-line distance to the same 0–100 access scale used
+    // elsewhere: ~40 km/h city driving → minutes, then minutesToScore.
+    const distScore = (km: number) => minutesToScore(km * 1.5);
+    const totalW = staff.reduce((a, s) => a + s.w, 0);
+
+    const scoreAt = (lat: number, lng: number): number => {
+      let sum = 0;
+      let wt = 0;
+      const at = { lat, lng };
+      if (useHosp) {
+        const d = Math.min(...centers.map((c) => haversineKm(c, at)));
+        sum += distScore(d) * w.hospital;
+        wt += w.hospital;
+      }
+      if (useAir) {
+        const d = Math.min(...airports.map((a) => haversineKm(a, at)));
+        sum += distScore(d) * w.airport;
+        wt += w.airport;
+      }
+      if (useCommute) {
+        const d = staff.reduce((a, s) => a + s.w * haversineKm(s, at), 0) / totalW;
+        sum += distScore(d) * w.commute;
+        wt += w.commute;
+      }
+      return wt > 0 ? sum / wt : 0;
+    };
+
+    const gridSearch = (aLat: number, bLat: number, aLng: number, bLng: number, N: number) => {
+      let best = { lat: (aLat + bLat) / 2, lng: (aLng + bLng) / 2 };
+      let bestS = -Infinity;
+      for (let i = 0; i < N; i++) {
+        for (let j = 0; j < N; j++) {
+          const lat = N === 1 ? (aLat + bLat) / 2 : aLat + ((bLat - aLat) * i) / (N - 1);
+          const lng = N === 1 ? (aLng + bLng) / 2 : aLng + ((bLng - aLng) * j) / (N - 1);
+          const s = scoreAt(lat, lng);
+          if (s > bestS) {
+            bestS = s;
+            best = { lat, lng };
+          }
+        }
+      }
+      return { best, bestS };
+    };
+
+    // Coarse sweep, then refine within one cell of the best point.
+    let { best, bestS } = gridSearch(minLat, maxLat, minLng, maxLng, 24);
+    const rLat = (maxLat - minLat) / 24;
+    const rLng = (maxLng - minLng) / 24;
+    ({ best, bestS } = gridSearch(best.lat - rLat, best.lat + rLat, best.lng - rLng, best.lng + rLng, 16));
+
+    const note = [useHosp && 'transplant centers', useAir && 'airports', useCommute && 'staff commute']
+      .filter(Boolean)
+      .join(', ');
+    setSuggestion({ lat: best.lat, lng: best.lng, score: Math.round(bestS), note });
+    flyTo(best.lat, best.lng, 11);
+    if (isMobile) setMobileView('map');
+    return { ok: true };
+  }, [city, state.weights, flyTo, isMobile]);
 
   const fitAll = useCallback(() => {
     const map = mapRef.current;
@@ -513,6 +657,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }),
     [apply],
   );
+  const importStaff = useCallback(
+    (rows: StaffImportRow[]): number => {
+      const clean = rows.filter((r) => r.city.trim() || r.zip.trim() || r.state.trim());
+      apply((d) => {
+        const c = findCity(d);
+        c.staff ??= [];
+        for (const r of clean) {
+          c.staff.push({
+            id: uid('st'),
+            city: r.city.trim(),
+            state: r.state.trim().toUpperCase().slice(0, 2),
+            zip: r.zip.trim(),
+            employees: (r.employees || '').replace(/[^0-9]/g, ''),
+          });
+        }
+      });
+      return clean.length;
+    },
+    [apply],
+  );
 
   const addDiscoveredRefs = useCallback(
     (kind: 'centers' | 'airports', items: DiscoveredPlace[]): number => {
@@ -694,9 +858,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     onMapClick,
     refreshMapSize,
     fitAll,
+    flyTo,
     editSite,
     addSiteAt,
     autoScoreCity,
+    suggestion,
+    suggestOffice,
+    clearSuggestion,
     setSiteScore,
     setSiteText,
     setFact,
@@ -721,6 +889,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     editStaff,
     removeStaff,
     setStaffCoords,
+    importStaff,
     addDiscoveredRefs,
     startAdd,
     cancelAdd,
