@@ -45,6 +45,12 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   locations to geocode it (Google Geocoding API) and drop a scored candidate site
   there — the quickest way to reach surrounding suburbs by name. Enable the
   **Geocoding API** on the key.
+- **Location image.** The detail panel shows a **Street View** photo of the
+  selected site (via the Google **Street View Static API**), with a **Street /
+  Map** toggle and an **Open in Google Maps** link. When no street-level imagery
+  exists it falls back to a **Maps Static API** road image. Served through
+  `/api/streetview` so the key stays server-side; enable those two APIs on the
+  key (see [Environment variables](#environment-variables)).
 - **Edit any site.** An **Edit** toggle in the detail panel lets you set each
   factor score (0–100, re-scores live) and edit the name, area, notes, and facts
   (asking rent, available space, …) — for candidate sites and the office. This is
@@ -115,7 +121,7 @@ npm run preview  # preview the production build
 
 | Variable              | Where            | Purpose                                                        |
 | --------------------- | ---------------- | -------------------------------------------------------------- |
-| `GOOGLE_MAPS_API_KEY` | server-side only | Drive-time auto-fill (`/api/drivetimes`, Distance Matrix API), Find-nearby discovery (`/api/places`, Places API), and search-to-add (`/api/geocode`, Geocoding API). Never exposed to the browser. |
+| `GOOGLE_MAPS_API_KEY` | server-side only | Drive-time auto-fill (`/api/drivetimes`, Distance Matrix API), Find-nearby discovery (`/api/places`, Places API), search-to-add + map search (`/api/geocode`, Geocoding API), and the detail-panel location image (`/api/streetview`, Street View Static API + Maps Static API). Never exposed to the browser. |
 
 **Vercel:** Project → Settings → Environment Variables → add the keys
 (all environments) → redeploy. In the [Google Cloud console](https://console.cloud.google.com/),
@@ -135,6 +141,7 @@ api/
   drivetimes.js         # Vercel function: Google Distance Matrix proxy (traffic)
   places.js             # Vercel function: Google Places proxy (find nearby refs)
   geocode.js            # Vercel function: Google Geocoding proxy (search-to-add)
+  streetview.js         # Vercel function: Street View / Static Map location image
 src/
   main.tsx              # entry
   App.tsx               # layout: header, nav, three columns, overlays

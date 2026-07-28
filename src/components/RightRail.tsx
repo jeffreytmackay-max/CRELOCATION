@@ -24,6 +24,85 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** A Street View photo (with static-map fallback) of the selected location. */
+function LocationImage({ lat, lng, label }: { lat: number; lng: number; label: string }) {
+  const [kind, setKind] = useState<'street' | 'map'>('street');
+  const [failed, setFailed] = useState(false);
+  const src = `/api/streetview?lat=${lat}&lng=${lng}&kind=${kind}&size=640x320`;
+  const gmaps = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  return (
+    <div style={{ margin: '2px 0 22px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={sectionLabel}>Location</span>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {(['street', 'map'] as const).map((k) => (
+            <button
+              key={k}
+              onClick={() => {
+                setKind(k);
+                setFailed(false);
+              }}
+              className={`sx-btn sx-btn-sm ${kind === k ? 'sx-btn-primary' : 'sx-btn-secondary'}`}
+              style={{ padding: '3px 11px' }}
+            >
+              {k === 'street' ? 'Street' : 'Map'}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div
+        style={{
+          borderRadius: 12,
+          overflow: 'hidden',
+          border: '1px solid var(--border-subtle)',
+          background: 'var(--tmdx-neutral-200)',
+          aspectRatio: '2 / 1',
+        }}
+      >
+        {failed ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              padding: 16,
+              fontSize: 12,
+              textAlign: 'center',
+              color: 'var(--text-muted)',
+            }}
+          >
+            Couldn’t load the location image.
+          </div>
+        ) : (
+          <img
+            key={src}
+            src={src}
+            alt={`${kind === 'street' ? 'Street view' : 'Map'} of ${label}`}
+            onError={() => setFailed(true)}
+            style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        )}
+      </div>
+      <a
+        href={gmaps}
+        target="_blank"
+        rel="noreferrer"
+        style={{
+          display: 'inline-block',
+          marginTop: 8,
+          fontSize: 11.5,
+          fontWeight: 700,
+          color: 'var(--brand-primary)',
+          textDecoration: 'none',
+        }}
+      >
+        Open in Google Maps ↗
+      </a>
+    </div>
+  );
+}
+
 /** Right rail: full detail for the selected candidate. */
 export function RightRail() {
   const {
@@ -230,6 +309,11 @@ export function RightRail() {
               Weighted location score
             </div>
           </div>
+
+          {/* Location image (Street View → static-map fallback) */}
+          {Number.isFinite(s.lat) && Number.isFinite(s.lng) && (
+            <LocationImage lat={s.lat} lng={s.lng} label={s.area || s.name} />
+          )}
 
           {/* Factor scores — editable */}
           {editing && (
