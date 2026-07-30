@@ -45,6 +45,8 @@ export interface Airport {
   name: string;
   lat: number;
   lng: number;
+  /** ICAO code used for AirportDB lookups (code holds the shorter IATA label). */
+  icao?: string;
 }
 
 /** A TransMedics-operated aviation facility (hangar / air base) — a map reference. */

@@ -69,6 +69,12 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   the metro via the **Google Places API** and add them to the reference points
   (de-duped against existing ones). Uses the same key as drive times — enable the
   **Places API** on it. See [Environment variables](#environment-variables).
+- **Airport lookup by ICAO.** In the Airports list, type an ICAO code and
+  **Look up ICAO** auto-fills the official name, **exact coordinates**, IATA code
+  (used as the map label) and a capability note (type, runway count, longest
+  runway) from the **AirportDB.io** API — no manual entry or map-clicking. Served
+  through `/api/airport` so the token stays server-side; add an `AIRPORTDB_API_TOKEN`
+  (see [Environment variables](#environment-variables)).
 - **Rank reference points by importance.** Transplant centers and airports are
   ranked by **list order — drag the ⠿ handle to reorder**. The transplant and
   airport access scores are a **rank-weighted** average of the per-reference
@@ -134,6 +140,7 @@ npm run preview  # preview the production build
 | Variable              | Where            | Purpose                                                        |
 | --------------------- | ---------------- | -------------------------------------------------------------- |
 | `GOOGLE_MAPS_API_KEY` | server-side only | Drive-time auto-fill (`/api/drivetimes`, Distance Matrix API), Find-nearby discovery (`/api/places`, Places API), search-to-add + map search (`/api/geocode`, Geocoding API), and the detail-panel location image (`/api/streetview`, Street View Static API + Maps Static API). Never exposed to the browser. |
+| `AIRPORTDB_API_TOKEN`  | server-side only | Airport lookup by ICAO (`/api/airport`, AirportDB.io) — official name, coordinates, IATA code, runways. Optional; free token from [airportdb.io](https://airportdb.io/). |
 
 **Vercel:** Project → Settings → Environment Variables → add the keys
 (all environments) → redeploy. In the [Google Cloud console](https://console.cloud.google.com/),
@@ -154,6 +161,7 @@ api/
   places.js             # Vercel function: Google Places proxy (find nearby refs)
   geocode.js            # Vercel function: Google Geocoding proxy (search-to-add)
   streetview.js         # Vercel function: Street View / Static Map location image
+  airport.js            # Vercel function: AirportDB.io lookup by ICAO code
 src/
   main.tsx              # entry
   App.tsx               # layout: header, nav, three columns, overlays
@@ -167,6 +175,7 @@ src/
     drivetimes.ts       # client for /api/drivetimes + departure-time presets
     places.ts           # client for /api/places (find nearby)
     geocode.ts          # client for /api/geocode (search-to-add + map search)
+    airport.ts          # client for /api/airport (AirportDB ICAO lookup)
     staffImport.ts      # parse an uploaded .xlsx/.csv of staff (SheetJS, lazy)
   components/
     Header.tsx          # brand + data actions

@@ -136,6 +136,11 @@ export interface Store {
   ) => void;
   /** Reorder transplant centers / airports (drag-to-rank); order = importance. */
   reorderRefs: (kind: 'centers' | 'airports', orderedIds: string[]) => void;
+  /** Fill an airport's fields from an AirportDB lookup (label, name, coords, ICAO). */
+  setAirportInfo: (
+    id: string,
+    info: { code?: string; name?: string; lat?: number; lng?: number; icao?: string },
+  ) => void;
   removeRef: (kind: 'centers' | 'airports', id: string) => void;
 
   addStaff: () => void;
@@ -665,6 +670,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [apply],
   );
 
+  const setAirportInfo = useCallback(
+    (
+      id: string,
+      info: { code?: string; name?: string; lat?: number; lng?: number; icao?: string },
+    ) =>
+      apply((d) => {
+        const a = findCity(d).airports.find((x) => x.id === id);
+        if (!a) return;
+        if (info.code != null) a.code = info.code;
+        if (info.name != null) a.name = info.name;
+        if (info.lat != null) a.lat = info.lat;
+        if (info.lng != null) a.lng = info.lng;
+        if (info.icao != null) a.icao = info.icao;
+      }),
+    [apply],
+  );
+
   const reorderRefs = useCallback(
     (kind: 'centers' | 'airports', orderedIds: string[]) =>
       apply((d) => {
@@ -973,6 +995,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAviationAddress,
     editRef,
     reorderRefs,
+    setAirportInfo,
     removeRef,
     addStaff,
     editStaff,

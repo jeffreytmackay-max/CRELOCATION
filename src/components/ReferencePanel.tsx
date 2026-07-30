@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react';
+import { lookupAirport } from '../lib/airport';
 import { geocode } from '../lib/geocode';
 import { findNearby } from '../lib/places';
 import { parseStaffFile } from '../lib/staffImport';
 import { useApp } from '../store';
+import type { Airport } from '../types';
 
 const cbStyle: React.CSSProperties = {
   accentColor: 'var(--tmdx-crimson)',
@@ -29,6 +31,7 @@ export function ReferencePanel() {
     setAviationAddress,
     editRef,
     reorderRefs,
+    setAirportInfo,
     removeRef,
     startAdd,
     addStaff,
@@ -390,43 +393,19 @@ export function ReferencePanel() {
           <FindStatusLine status={status} kind="airports" />
           {city.airports.length > 1 && <RankHint />}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {city.airports.map((a, i) => {
-              const rp = airportsDnd.rowProps(a.id);
-              return (
-                <div
-                  key={a.id}
-                  onDragOver={rp.onDragOver}
-                  onDrop={rp.onDrop}
-                  style={{
-                    display: 'flex',
-                    gap: 7,
-                    alignItems: 'center',
-                    paddingBottom: 12,
-                    borderRadius: 8,
-                    opacity: rp.isDragging ? 0.4 : 1,
-                    outline: rp.isOver ? '2px dashed var(--brand-primary)' : 'none',
-                    borderBottom: '1px dashed var(--border-subtle)',
-                  }}
-                >
-                  <RankGrip rank={i + 1} showRank={city.airports.length > 1} {...airportsDnd.handleProps(a.id)} />
-                  <input
-                    className="sx-inp"
-                    value={a.code || ''}
-                    onChange={(e) => editRef('airports', a.id, 'code', e.target.value)}
-                    placeholder="Code"
-                    style={{ width: 60, flex: 'none', textTransform: 'uppercase', fontWeight: 700 }}
-                  />
-                  <input
-                    className="sx-inp"
-                    value={a.name || ''}
-                    onChange={(e) => editRef('airports', a.id, 'name', e.target.value)}
-                    placeholder="Airport name"
-                    style={{ flex: 1 }}
-                  />
-                  <RemoveButton onClick={() => removeRef('airports', a.id)} />
-                </div>
-              );
-            })}
+            {city.airports.map((a, i) => (
+              <AirportRow
+                key={a.id}
+                a={a}
+                rank={i + 1}
+                showRank={city.airports.length > 1}
+                dnd={airportsDnd.rowProps(a.id)}
+                handle={airportsDnd.handleProps(a.id)}
+                editRef={editRef}
+                removeRef={removeRef}
+                setAirportInfo={setAirportInfo}
+              />
+            ))}
           </div>
         </div>
 
@@ -750,6 +729,123 @@ function RankGrip({
       <span style={{ fontSize: 15, lineHeight: 1 }}>⠿</span>
       {showRank && <span style={{ fontSize: 11, fontWeight: 800 }}>#{rank}</span>}
     </span>
+  );
+}
+
+/** One ranked airport row with an AirportDB "Look up by ICAO" auto-fill. */
+function AirportRow({
+  a,
+  rank,
+  showRank,
+  dnd,
+  handle,
+  editRef,
+  removeRef,
+  setAirportInfo,
+}: {
+  a: Airport;
+  rank: number;
+  showRank: boolean;
+  dnd: RowDrag;
+  handle: HandleDrag;
+  editRef: (kind: 'centers' | 'airports', id: string, field: string, v: string) => void;
+  removeRef: (kind: 'centers' | 'airports', id: string) => void;
+  setAirportInfo: (
+    id: string,
+    info: { code?: string; name?: string; lat?: number; lng?: number; icao?: string },
+  ) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<{ text: string; err: boolean } | null>(null);
+
+  async function lookup() {
+    const q = (a.icao || a.code || '').trim();
+    if (!q) {
+      setStatus({ text: 'Type the ICAO code first (e.g. KBOS).', err: true });
+      return;
+    }
+    setBusy(true);
+    setStatus(null);
+    try {
+      const info = await lookupAirport(q);
+      setAirportInfo(a.id, {
+        code: info.iata || info.ident,
+        name: info.name,
+        lat: info.lat,
+        lng: info.lng,
+        icao: info.ident,
+      });
+      const rw = info.longestRunwayFt
+        ? ` · ${info.runwayCount} rwy, ${info.longestRunwayFt.toLocaleString()} ft`
+        : '';
+      setStatus({
+        text: `${info.ident}${info.iata ? ` / ${info.iata}` : ''} · ${info.name}${rw}`,
+        err: false,
+      });
+    } catch (e) {
+      setStatus({ text: e instanceof Error ? e.message : 'Lookup failed.', err: true });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      onDragOver={dnd.onDragOver}
+      onDrop={dnd.onDrop}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        paddingBottom: 12,
+        borderRadius: 8,
+        opacity: dnd.isDragging ? 0.4 : 1,
+        outline: dnd.isOver ? '2px dashed var(--brand-primary)' : 'none',
+        borderBottom: '1px dashed var(--border-subtle)',
+      }}
+    >
+      <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+        <RankGrip rank={rank} showRank={showRank} {...handle} />
+        <input
+          className="sx-inp"
+          value={a.code || ''}
+          onChange={(e) => editRef('airports', a.id, 'code', e.target.value)}
+          placeholder="ICAO"
+          title="Enter the ICAO code (e.g. KBOS), then Look up"
+          style={{ width: 64, flex: 'none', textTransform: 'uppercase', fontWeight: 700 }}
+        />
+        <input
+          className="sx-inp"
+          value={a.name || ''}
+          onChange={(e) => editRef('airports', a.id, 'name', e.target.value)}
+          placeholder="Airport name"
+          style={{ flex: 1 }}
+        />
+        <RemoveButton onClick={() => removeRef('airports', a.id)} />
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button
+          className="sx-btn sx-btn-sm sx-btn-secondary"
+          onClick={lookup}
+          disabled={busy}
+          style={{ flex: 'none', opacity: busy ? 0.7 : 1 }}
+          title="Fill name, coordinates and IATA from AirportDB by ICAO code"
+        >
+          {busy ? 'Looking…' : '🔎 Look up ICAO'}
+        </button>
+        {status && (
+          <span
+            style={{
+              fontSize: 10.5,
+              lineHeight: 1.35,
+              color: status.err ? 'var(--tmdx-crimson)' : 'var(--tmdx-green)',
+            }}
+          >
+            {status.text}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 
