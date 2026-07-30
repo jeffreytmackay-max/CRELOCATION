@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { lookupAirport } from '../lib/airport';
 import { geocode } from '../lib/geocode';
-import { findNearby } from '../lib/places';
+import { findNearby, nearbyAirports } from '../lib/places';
 import { parseStaffFile } from '../lib/staffImport';
 import { useApp } from '../store';
 import type { Airport } from '../types';
@@ -124,16 +124,17 @@ export function ReferencePanel() {
     setBusy(kind);
     setStatus(null);
     try {
-      const found = await findNearby(
-        kind === 'centers' ? 'transplant' : 'airport',
-        city.center[0],
-        city.center[1],
-      );
+      // Airports come from the bundled OurAirports dataset (real ICAO/IATA, no
+      // Google); transplant centers still use Google Places.
+      const found =
+        kind === 'airports'
+          ? await nearbyAirports(city.center[0], city.center[1])
+          : await findNearby('transplant', city.center[0], city.center[1]);
       const added = addDiscoveredRefs(kind, found);
       const noun = kind === 'centers' ? 'transplant center' : 'airport';
       const text =
         added > 0
-          ? `Added ${added} ${noun}${added === 1 ? '' : 's'}${kind === 'airports' ? ' — set their codes below.' : '.'}`
+          ? `Added ${added} ${noun}${added === 1 ? '' : 's'}${kind === 'airports' ? ' with codes & names filled.' : '.'}`
           : found.length
             ? 'Nothing new — the nearby ones are already listed.'
             : 'None found nearby.';
@@ -389,6 +390,7 @@ export function ReferencePanel() {
             onAdd={() => startAdd('airport')}
             onFind={() => discover('airports')}
             finding={busy === 'airports'}
+            findTitle="Find airports near this metro from open airport data (no Google needed)"
           />
           <FindStatusLine status={status} kind="airports" />
           {city.airports.length > 1 && <RankHint />}
@@ -576,6 +578,7 @@ function SectionHeader({
   finding = false,
   findLabel = 'Find nearby',
   findBusyLabel = 'Finding…',
+  findTitle = 'Locate these with Google and show them on the map',
 }: {
   label: string;
   onAdd: () => void;
@@ -584,6 +587,7 @@ function SectionHeader({
   finding?: boolean;
   findLabel?: string;
   findBusyLabel?: string;
+  findTitle?: string;
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 11 }}>
@@ -593,7 +597,7 @@ function SectionHeader({
           <button
             onClick={onFind}
             disabled={finding}
-            title="Locate these with Google and show them on the map"
+            title={findTitle}
             style={{ ...linkBtnStyle, opacity: finding ? 0.6 : 1 }}
           >
             {finding ? findBusyLabel : findLabel}

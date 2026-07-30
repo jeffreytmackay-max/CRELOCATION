@@ -65,10 +65,12 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
 - **Add on map.** Drop new candidate sites, transplant centers, airports, or
   reposition your office by clicking the map. Add new metros via the Add-city
   modal.
-- **Find nearby.** Auto-discover transplant centers/hospitals and airports around
-  the metro via the **Google Places API** and add them to the reference points
-  (de-duped against existing ones). Uses the same key as drive times — enable the
-  **Places API** on it. See [Environment variables](#environment-variables).
+- **Find nearby.** Auto-discover reference points around the metro and add them
+  (de-duped). **Airports** come from a **bundled OurAirports dataset** (`/api/nearby-airports`)
+  — real ICAO/IATA codes, names and coordinates, ranked nearest-first, **no Google
+  and no token**. **Transplant centers/hospitals** still use the **Google Places
+  API** (no open hospital dataset), so enable the **Places API** on the key for
+  those. See [Environment variables](#environment-variables).
 - **Airport lookup by ICAO.** In the Airports list, type an ICAO code and
   **Look up ICAO** auto-fills the official name, **exact coordinates**, IATA code
   (used as the map label) and a capability note (type, runway count, longest
@@ -162,6 +164,8 @@ api/
   geocode.js            # Vercel function: Google Geocoding proxy (search-to-add)
   streetview.js         # Vercel function: Street View / Static Map location image
   airport.js            # Vercel function: AirportDB.io lookup by ICAO code
+  nearby-airports.js    # Vercel function: nearby airports from OurAirports data
+  _airports.json        # bundled OurAirports subset (large + medium airports)
 src/
   main.tsx              # entry
   App.tsx               # layout: header, nav, three columns, overlays

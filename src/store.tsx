@@ -805,7 +805,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           );
         } else {
           fresh.forEach((it) =>
-            c.airports.push({ id: uid('a'), code: it.code || '', name: it.name, lat: it.lat, lng: it.lng }),
+            c.airports.push({
+              id: uid('a'),
+              code: it.code || '',
+              name: it.name,
+              lat: it.lat,
+              lng: it.lng,
+              icao: it.icao || undefined,
+            }),
           );
         }
       });
