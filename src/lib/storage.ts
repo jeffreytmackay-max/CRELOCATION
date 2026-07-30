@@ -13,7 +13,7 @@ export function freshState(): AppState {
     cityId: '',
     selectedSiteId: null,
     panelOpen: false,
-    layers: { centers: true, airports: true, office: true, staff: true },
+    layers: { centers: true, airports: true, office: true, staff: true, aviation: true },
     cities: [],
     driveTimes: {},
   };
@@ -28,6 +28,13 @@ export function loadState(): AppState {
       if (!loaded.cities) loaded.cities = [];
       // Real-estate is opt-in; default off for states saved before the toggle.
       if (typeof loaded.includeSpace !== 'boolean') loaded.includeSpace = false;
+      if (loaded.layers && loaded.layers.aviation === undefined) loaded.layers.aviation = true;
+      // Ensure each city has an aviation-facility slot (added after some saves).
+      loaded.cities.forEach((c) => {
+        if (!c.aviation) {
+          c.aviation = { on: false, address: '', lat: c.center?.[0] ?? 0, lng: c.center?.[1] ?? 0 };
+        }
+      });
       return loaded;
     }
   } catch {

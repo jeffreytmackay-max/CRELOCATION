@@ -69,6 +69,17 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   the metro via the **Google Places API** and add them to the reference points
   (de-duped against existing ones). Uses the same key as drive times — enable the
   **Places API** on it. See [Environment variables](#environment-variables).
+- **Rank reference points by importance.** Each transplant center and airport
+  carries an **importance** (1–5, Critical → Minimal). The transplant and airport
+  access scores are the **importance-weighted** average of the per-reference
+  drive-time scores — so being near the higher-ranked hub/center counts for more
+  than near a minor one. Reference lists sort by importance, higher-ranked markers
+  render larger on the map (tagged e.g. "IAH ★5"), and the ideal-location
+  suggester weights them the same way.
+- **TMDX aviation facility.** Alongside the current office, each metro can flag a
+  **TransMedics aviation facility** (hangar / air base) as a reference point —
+  toggled in Reference points, placed by clicking the map, shown as a teal marker
+  with its own layer toggle.
 - **Drive times (traffic-aware).** Per-site vs. office drive-time comparison
   with a live Δ (green when closer than the office, crimson when farther).
   **Auto-fill** computes driving times from the site and office to every

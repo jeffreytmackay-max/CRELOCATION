@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { IMPORTANCE_LEVELS, importanceOf } from '../data/factors';
 import { geocode } from '../lib/geocode';
 import { findNearby } from '../lib/places';
 import { parseStaffFile } from '../lib/staffImport';
@@ -25,7 +26,10 @@ export function ReferencePanel() {
     toggleLayer,
     toggleOffice,
     setOfficeAddress,
+    toggleAviation,
+    setAviationAddress,
     editRef,
+    setRefImportance,
     removeRef,
     startAdd,
     addStaff,
@@ -244,6 +248,7 @@ export function ReferencePanel() {
               ['centers', 'Transplant centers'],
               ['airports', 'Airports'],
               ['office', 'Your office'],
+              ['aviation', 'TMDX aviation facility'],
               ['staff', 'Staff locations'],
             ] as const
           ).map(([k, txt]) => (
@@ -287,6 +292,39 @@ export function ReferencePanel() {
           )}
         </div>
 
+        {/* TMDX aviation facility */}
+        <div style={{ padding: '16px 18px', borderBottom: '1px solid var(--border-subtle)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', marginBottom: 10 }}>
+            <input
+              type="checkbox"
+              checked={!!city.aviation?.on}
+              onChange={(e) => toggleAviation(e.target.checked)}
+              style={cbStyle}
+            />
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-strong)' }}>
+              TMDX aviation facility in this city
+            </span>
+          </label>
+          {city.aviation?.on && (
+            <>
+              <input
+                className="sx-inp"
+                value={city.aviation.address || ''}
+                onChange={(e) => setAviationAddress(e.target.value)}
+                placeholder="Aviation facility address"
+                style={{ marginBottom: 8 }}
+              />
+              <button
+                className="sx-btn sx-btn-sm sx-btn-secondary"
+                style={{ width: '100%', justifyContent: 'center' }}
+                onClick={() => startAdd('aviation')}
+              >
+                {city.aviation.lat ? 'Reposition on map' : 'Place on map'}
+              </button>
+            </>
+          )}
+        </div>
+
         {/* Transplant centers */}
         <div style={{ padding: '16px 18px', borderBottom: '1px solid var(--border-subtle)' }}>
           <SectionHeader
@@ -296,36 +334,43 @@ export function ReferencePanel() {
             finding={busy === 'centers'}
           />
           <FindStatusLine status={status} kind="centers" />
+          {city.centers.length > 1 && <RankHint />}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {city.centers.map((c) => (
-              <div
-                key={c.id}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 6,
-                  paddingBottom: 12,
-                  borderBottom: '1px dashed var(--border-subtle)',
-                }}
-              >
-                <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+            {[...city.centers]
+              .sort((a, b) => importanceOf(b) - importanceOf(a))
+              .map((c) => (
+                <div
+                  key={c.id}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                    paddingBottom: 12,
+                    borderBottom: '1px dashed var(--border-subtle)',
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+                    <input
+                      className="sx-inp"
+                      value={c.short || ''}
+                      onChange={(e) => editRef('centers', c.id, 'short', e.target.value)}
+                      placeholder="Label (map)"
+                      style={{ flex: 1 }}
+                    />
+                    <RemoveButton onClick={() => removeRef('centers', c.id)} />
+                  </div>
                   <input
                     className="sx-inp"
-                    value={c.short || ''}
-                    onChange={(e) => editRef('centers', c.id, 'short', e.target.value)}
-                    placeholder="Label (map)"
-                    style={{ flex: 1 }}
+                    value={c.address || ''}
+                    onChange={(e) => editRef('centers', c.id, 'address', e.target.value)}
+                    placeholder="Full address"
                   />
-                  <RemoveButton onClick={() => removeRef('centers', c.id)} />
+                  <ImportanceRow
+                    value={importanceOf(c)}
+                    onChange={(v) => setRefImportance('centers', c.id, v)}
+                  />
                 </div>
-                <input
-                  className="sx-inp"
-                  value={c.address || ''}
-                  onChange={(e) => editRef('centers', c.id, 'address', e.target.value)}
-                  placeholder="Full address"
-                />
-              </div>
-            ))}
+              ))}
           </div>
         </div>
 
@@ -338,26 +383,44 @@ export function ReferencePanel() {
             finding={busy === 'airports'}
           />
           <FindStatusLine status={status} kind="airports" />
+          {city.airports.length > 1 && <RankHint />}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {city.airports.map((a) => (
-              <div key={a.id} style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
-                <input
-                  className="sx-inp"
-                  value={a.code || ''}
-                  onChange={(e) => editRef('airports', a.id, 'code', e.target.value)}
-                  placeholder="Code"
-                  style={{ width: 64, flex: 'none', textTransform: 'uppercase', fontWeight: 700 }}
-                />
-                <input
-                  className="sx-inp"
-                  value={a.name || ''}
-                  onChange={(e) => editRef('airports', a.id, 'name', e.target.value)}
-                  placeholder="Airport name"
-                  style={{ flex: 1 }}
-                />
-                <RemoveButton onClick={() => removeRef('airports', a.id)} />
-              </div>
-            ))}
+            {[...city.airports]
+              .sort((a, b) => importanceOf(b) - importanceOf(a))
+              .map((a) => (
+                <div
+                  key={a.id}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                    paddingBottom: 12,
+                    borderBottom: '1px dashed var(--border-subtle)',
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+                    <input
+                      className="sx-inp"
+                      value={a.code || ''}
+                      onChange={(e) => editRef('airports', a.id, 'code', e.target.value)}
+                      placeholder="Code"
+                      style={{ width: 64, flex: 'none', textTransform: 'uppercase', fontWeight: 700 }}
+                    />
+                    <input
+                      className="sx-inp"
+                      value={a.name || ''}
+                      onChange={(e) => editRef('airports', a.id, 'name', e.target.value)}
+                      placeholder="Airport name"
+                      style={{ flex: 1 }}
+                    />
+                    <RemoveButton onClick={() => removeRef('airports', a.id)} />
+                  </div>
+                  <ImportanceRow
+                    value={importanceOf(a)}
+                    onChange={(v) => setRefImportance('airports', a.id, v)}
+                  />
+                </div>
+              ))}
           </div>
         </div>
 
@@ -578,6 +641,39 @@ function FindStatusLine({
     >
       {status.text}
     </div>
+  );
+}
+
+/** A one-line note explaining that importance drives the ranked score. */
+function RankHint() {
+  return (
+    <div style={{ fontSize: 10.5, lineHeight: 1.4, color: 'var(--text-muted)', margin: '-4px 0 11px' }}>
+      Rank each by importance — higher-ranked ones weigh more in the access score, and show larger
+      on the map.
+    </div>
+  );
+}
+
+/** Importance (1–5) selector for a transplant center / airport. */
+function ImportanceRow({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', flex: 'none' }}>
+        Importance
+      </span>
+      <select
+        className="sx-inp"
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ flex: 1, padding: '6px 8px', cursor: 'pointer' }}
+      >
+        {IMPORTANCE_LEVELS.map((l) => (
+          <option key={l.value} value={l.value}>
+            {l.label} ({l.value})
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

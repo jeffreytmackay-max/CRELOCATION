@@ -67,3 +67,21 @@ export const FACTOR_ICON_PATHS: Record<FactorKey, string[]> = {
 export function activeFactorKeys(includeSpace: boolean): FactorKey[] {
   return FACTORS.filter((f) => includeSpace || !f.optional).map((f) => f.key);
 }
+
+/** Default importance for a newly added reference point (1–5 scale). */
+export const DEFAULT_IMPORTANCE = 3;
+
+/** Importance levels for ranking transplant centers / airports (high → low). */
+export const IMPORTANCE_LEVELS: { value: number; label: string }[] = [
+  { value: 5, label: 'Critical' },
+  { value: 4, label: 'High' },
+  { value: 3, label: 'Medium' },
+  { value: 2, label: 'Low' },
+  { value: 1, label: 'Minimal' },
+];
+
+/** Clamp/normalize a stored importance to the 1–5 range with a sane default. */
+export function importanceOf(r: { importance?: number }): number {
+  const n = Math.round(r.importance ?? DEFAULT_IMPORTANCE);
+  return Math.max(1, Math.min(5, Number.isFinite(n) ? n : DEFAULT_IMPORTANCE));
+}

@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { Map as LeafletMap } from 'leaflet';
-import { DEFAULT_WEIGHTS } from './data/factors';
+import { DEFAULT_IMPORTANCE, DEFAULT_WEIGHTS, importanceOf } from './data/factors';
 import { minutesToScore, normalize, scoreCity } from './lib/scoring';
 import { geocode } from './lib/geocode';
 import { departureTimestamp, matrix } from './lib/drivetimes';
@@ -125,12 +125,17 @@ export interface Store {
   toggleLayer: (k: keyof AppState['layers']) => void;
   toggleOffice: (on: boolean) => void;
   setOfficeAddress: (v: string) => void;
+  /** Toggle the TMDX aviation facility on/off for the current city. */
+  toggleAviation: (on: boolean) => void;
+  setAviationAddress: (v: string) => void;
   editRef: (
     kind: 'centers' | 'airports',
     id: string,
     field: string,
     v: string,
   ) => void;
+  /** Set a transplant center / airport's importance rank (1–5). */
+  setRefImportance: (kind: 'centers' | 'airports', id: string, val: number) => void;
   removeRef: (kind: 'centers' | 'airports', id: string) => void;
 
   addStaff: () => void;
@@ -300,10 +305,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!city) return { ok: false, error: 'No city selected.' };
     const centers = city.centers
       .filter((c) => c.lat != null && c.lng != null)
-      .map((c) => ({ lat: c.lat, lng: c.lng }));
+      .map((c) => ({ lat: c.lat, lng: c.lng, imp: importanceOf(c) }));
     const airports = city.airports
       .filter((a) => a.lat != null && a.lng != null)
-      .map((a) => ({ lat: a.lat, lng: a.lng }));
+      .map((a) => ({ lat: a.lat, lng: a.lng, imp: importanceOf(a) }));
     const staff = (city.staff ?? [])
       .filter((s) => s.lat != null && s.lng != null)
       .map((s) => ({ lat: s.lat as number, lng: s.lng as number, w: Math.max(1, parseInt(s.employees, 10) || 0) }));
@@ -334,19 +339,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // elsewhere: ~40 km/h city driving → minutes, then minutesToScore.
     const distScore = (km: number) => minutesToScore(km * 1.5);
     const totalW = staff.reduce((a, s) => a + s.w, 0);
+    // Importance-weighted proximity score across a set of reference points.
+    const impDistScore = (refs: { lat: number; lng: number; imp: number }[], at: { lat: number; lng: number }) => {
+      let iw = 0;
+      let iws = 0;
+      refs.forEach((r) => {
+        iw += r.imp;
+        iws += r.imp * distScore(haversineKm(r, at));
+      });
+      return iw > 0 ? iws / iw : 0;
+    };
 
     const scoreAt = (lat: number, lng: number): number => {
       let sum = 0;
       let wt = 0;
       const at = { lat, lng };
       if (useHosp) {
-        const d = Math.min(...centers.map((c) => haversineKm(c, at)));
-        sum += distScore(d) * w.hospital;
+        sum += impDistScore(centers, at) * w.hospital;
         wt += w.hospital;
       }
       if (useAir) {
-        const d = Math.min(...airports.map((a) => haversineKm(a, at)));
-        sum += distScore(d) * w.airport;
+        sum += impDistScore(airports, at) * w.airport;
         wt += w.airport;
       }
       if (useCommute) {
@@ -472,14 +485,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return { scored: 0, error: e instanceof Error ? e.message : 'Drive-time lookup failed.' };
     }
 
+    // Importance-weighted average of the per-reference drive-time scores, so
+    // proximity to the higher-ranked centers/airports counts for more.
+    const weightedScore = (
+      refs: { importance?: number }[],
+      mins: (number | null)[],
+    ): number | null => {
+      let w = 0;
+      let ws = 0;
+      refs.forEach((r, k) => {
+        const m = mins[k];
+        if (m == null) return;
+        const imp = importanceOf(r);
+        w += imp;
+        ws += imp * minutesToScore(m);
+      });
+      return w > 0 ? Math.round(ws / w) : null;
+    };
+
     const updates = new Map<string, { hospital?: number; airport?: number; commute?: number }>();
     sites.forEach((site, i) => {
       const u: { hospital?: number; airport?: number; commute?: number } = {};
       const row = siteToRef[i] ?? [];
-      const centerMins = row.slice(0, centers.length).filter((m): m is number => m != null);
-      const airportMins = row.slice(centers.length).filter((m): m is number => m != null);
-      if (centerMins.length) u.hospital = minutesToScore(Math.min(...centerMins));
-      if (airportMins.length) u.airport = minutesToScore(Math.min(...airportMins));
+      const hospital = weightedScore(centers, row.slice(0, centers.length));
+      const airport = weightedScore(airports, row.slice(centers.length));
+      if (hospital != null) u.hospital = hospital;
+      if (airport != null) u.airport = airport;
       // Staff commute — headcount-weighted average drive time to this site.
       let sumW = 0;
       let sumWM = 0;
@@ -597,6 +628,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (v: string) => apply((d) => void (findCity(d).office.address = v)),
     [apply],
   );
+
+  /** Ensure the current city has an aviation-facility object; returns it. */
+  const ensureAviation = (c: City) =>
+    (c.aviation ??= { on: false, address: '', lat: c.center[0], lng: c.center[1] });
+  const toggleAviation = useCallback(
+    (on: boolean) =>
+      apply((d) => {
+        const c = findCity(d);
+        ensureAviation(c).on = on;
+        if (on) d.layers.aviation = true;
+      }),
+    [apply],
+  );
+  const setAviationAddress = useCallback(
+    (v: string) => apply((d) => void (ensureAviation(findCity(d)).address = v)),
+    [apply],
+  );
+
+  const setRefImportance = useCallback(
+    (kind: 'centers' | 'airports', id: string, val: number) =>
+      apply((d) => {
+        const item = findCity(d)[kind].find((x) => x.id === id);
+        if (item) item.importance = Math.max(1, Math.min(5, Math.round(val) || DEFAULT_IMPORTANCE));
+      }),
+    [apply],
+  );
   const editRef = useCallback(
     (kind: 'centers' | 'airports', id: string, field: string, v: string) =>
       apply((d) => {
@@ -697,11 +754,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const c = findCity(d);
         if (kind === 'centers') {
           fresh.forEach((it) =>
-            c.centers.push({ id: uid('c'), short: it.name, address: it.address, lat: it.lat, lng: it.lng }),
+            c.centers.push({
+              id: uid('c'),
+              short: it.name,
+              address: it.address,
+              lat: it.lat,
+              lng: it.lng,
+              importance: DEFAULT_IMPORTANCE,
+            }),
           );
         } else {
           fresh.forEach((it) =>
-            c.airports.push({ id: uid('a'), code: it.code || '', name: it.name, lat: it.lat, lng: it.lng }),
+            c.airports.push({
+              id: uid('a'),
+              code: it.code || '',
+              name: it.name,
+              lat: it.lat,
+              lng: it.lng,
+              importance: DEFAULT_IMPORTANCE,
+            }),
           );
         }
       });
@@ -755,10 +826,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
           c.office.on = true;
           c.office.lat = lat;
           c.office.lng = lng;
+        } else if (kind === 'aviation') {
+          c.aviation = { on: true, address: c.aviation?.address ?? '', lat, lng };
+          d.layers.aviation = true;
         } else if (kind === 'center') {
-          c.centers.push({ id: uid('c'), short: 'New center', address: '', lat, lng });
+          c.centers.push({
+            id: uid('c'),
+            short: 'New center',
+            address: '',
+            lat,
+            lng,
+            importance: DEFAULT_IMPORTANCE,
+          });
         } else if (kind === 'airport') {
-          c.airports.push({ id: uid('a'), code: 'XXX', name: '', lat, lng });
+          c.airports.push({
+            id: uid('a'),
+            code: 'XXX',
+            name: '',
+            lat,
+            lng,
+            importance: DEFAULT_IMPORTANCE,
+          });
         }
       });
     },
@@ -813,6 +901,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             note: 'Your current office — scored on the same factors as a benchmark for the candidate sites.',
             facts: [['Status', 'Current office']],
           },
+          aviation: { on: false, address: '', lat: clat, lng: clng },
           centers: [],
           airports: [],
           sites: [],
@@ -883,7 +972,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toggleLayer,
     toggleOffice,
     setOfficeAddress,
+    toggleAviation,
+    setAviationAddress,
     editRef,
+    setRefImportance,
     removeRef,
     addStaff,
     editStaff,

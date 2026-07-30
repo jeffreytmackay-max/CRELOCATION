@@ -35,12 +35,24 @@ export interface Center {
   address: string;
   lat: number;
   lng: number;
+  /** Relative importance 1–5 (5 = most important). Weights the access score. */
+  importance?: number;
 }
 
 export interface Airport {
   id: string;
   code: string;
   name: string;
+  lat: number;
+  lng: number;
+  /** Relative importance 1–5 (5 = most important). Weights the access score. */
+  importance?: number;
+}
+
+/** A TransMedics-operated aviation facility (hangar / air base) — a map reference. */
+export interface AviationFacility {
+  on: boolean;
+  address: string;
   lat: number;
   lng: number;
 }
@@ -80,6 +92,8 @@ export interface City {
   center: [number, number];
   zoom: number;
   office: Office;
+  /** TransMedics aviation facility for this metro. Optional (older saved states). */
+  aviation?: AviationFacility;
   centers: Center[];
   airports: Airport[];
   sites: Site[];
@@ -93,6 +107,8 @@ export interface Layers {
   office: boolean;
   /** Staff-location markers. Optional — older saved states may omit it. */
   staff?: boolean;
+  /** TMDX aviation-facility marker. Optional — older saved states may omit it. */
+  aviation?: boolean;
 }
 
 /**
@@ -125,4 +141,4 @@ export interface ScoredSite extends Site {
 }
 
 /** What the user is currently placing on the map, if anything. */
-export type AddKind = 'center' | 'airport' | 'site' | 'office';
+export type AddKind = 'center' | 'airport' | 'site' | 'office' | 'aviation';

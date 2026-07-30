@@ -9,10 +9,16 @@ import {
   useMap,
   useMapEvents,
 } from 'react-leaflet';
+import { importanceOf } from '../data/factors';
 import { geocode, type GeocodeResult } from '../lib/geocode';
 import { scoreColor } from '../lib/scoring';
 import { useApp } from '../store';
 import { Legend } from './Legend';
+
+/** Compact importance badge for a reference tooltip (e.g. "★5"). */
+function priorityStars(imp: number): string {
+  return `★${imp}`;
+}
 
 /** Registers the map instance, wires click-to-place, keeps size in sync. */
 function MapController() {
@@ -49,20 +55,32 @@ function MapController() {
   return null;
 }
 
-function centerIcon() {
+// Reference markers scale with importance (1–5) so higher-ranked ones read bigger.
+function centerIcon(importance = 3) {
+  const d = 14 + (importance - 1) * 3; // 14 → 26
   return L.divIcon({
     className: '',
-    html: `<div class="sx-mark" style="width:18px;height:18px;border-radius:4px;background:#9d2235;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35);font-size:12px">+</div>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
+    html: `<div class="sx-mark" style="width:${d}px;height:${d}px;border-radius:4px;background:#9d2235;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35);font-size:${Math.round(d * 0.62)}px">+</div>`,
+    iconSize: [d, d],
+    iconAnchor: [d / 2, d / 2],
   });
 }
-function airportIcon() {
+function airportIcon(importance = 3) {
+  const w = 16 + (importance - 1) * 3; // 16 → 28
+  const h = Math.round(w * 0.8);
   return L.divIcon({
     className: '',
-    html: `<div class="sx-mark" style="width:20px;height:16px;border-radius:4px;background:#44546a;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35);font-size:0">✈</div>`,
-    iconSize: [20, 16],
-    iconAnchor: [10, 8],
+    html: `<div class="sx-mark" style="width:${w}px;height:${h}px;border-radius:4px;background:#44546a;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35);font-size:0">✈</div>`,
+    iconSize: [w, h],
+    iconAnchor: [w / 2, h / 2],
+  });
+}
+function aviationIcon() {
+  return L.divIcon({
+    className: '',
+    html: `<div class="sx-mark" style="width:24px;height:24px;border-radius:6px;background:#0e7490;border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);font-size:13px">✈</div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
   });
 }
 function officeIcon() {
@@ -160,9 +178,9 @@ export function MapView() {
         {Ly.centers &&
           city.centers.map((c) =>
             c.lat == null ? null : (
-              <Marker key={c.id} position={[c.lat, c.lng]} icon={centerIcon()}>
+              <Marker key={c.id} position={[c.lat, c.lng]} icon={centerIcon(importanceOf(c))}>
                 <Tooltip permanent direction="top" offset={[0, -11]} className="sx-tt sx-tt-ref">
-                  {c.short || 'Center'}
+                  {c.short || 'Center'} {priorityStars(importanceOf(c))}
                 </Tooltip>
               </Marker>
             ),
@@ -171,13 +189,21 @@ export function MapView() {
         {Ly.airports &&
           city.airports.map((a) =>
             a.lat == null ? null : (
-              <Marker key={a.id} position={[a.lat, a.lng]} icon={airportIcon()}>
+              <Marker key={a.id} position={[a.lat, a.lng]} icon={airportIcon(importanceOf(a))}>
                 <Tooltip permanent direction="top" offset={[0, -10]} className="sx-tt sx-tt-ref">
-                  {(a.code || '?').toUpperCase()}
+                  {(a.code || '?').toUpperCase()} {priorityStars(importanceOf(a))}
                 </Tooltip>
               </Marker>
             ),
           )}
+
+        {Ly.aviation && city.aviation?.on && city.aviation.lat != null && (
+          <Marker position={[city.aviation.lat, city.aviation.lng]} icon={aviationIcon()}>
+            <Tooltip permanent direction="top" offset={[0, -13]} className="sx-tt sx-tt-ref">
+              TMDX Aviation
+            </Tooltip>
+          </Marker>
+        )}
 
         {Ly.office && city.office.on && city.office.lat != null && (
           <Marker position={[city.office.lat, city.office.lng]} icon={officeIcon()}>
@@ -244,7 +270,9 @@ export function MapView() {
                 ? 'Click the map to place an airport'
                 : addMode === 'site'
                   ? 'Click the map to place a candidate site'
-                  : 'Click the map to place your office'}
+                  : addMode === 'aviation'
+                    ? 'Click the map to place the TMDX aviation facility'
+                    : 'Click the map to place your office'}
           </span>
           <button
             onClick={cancelAdd}
