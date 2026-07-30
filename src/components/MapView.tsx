@@ -9,16 +9,11 @@ import {
   useMap,
   useMapEvents,
 } from 'react-leaflet';
-import { importanceOf } from '../data/factors';
+import { rankWeight } from '../data/factors';
 import { geocode, type GeocodeResult } from '../lib/geocode';
 import { scoreColor } from '../lib/scoring';
 import { useApp } from '../store';
 import { Legend } from './Legend';
-
-/** Compact importance badge for a reference tooltip (e.g. "★5"). */
-function priorityStars(imp: number): string {
-  return `★${imp}`;
-}
 
 /** Registers the map instance, wires click-to-place, keeps size in sync. */
 function MapController() {
@@ -176,22 +171,32 @@ export function MapView() {
         )}
 
         {Ly.centers &&
-          city.centers.map((c) =>
+          city.centers.map((c, i) =>
             c.lat == null ? null : (
-              <Marker key={c.id} position={[c.lat, c.lng]} icon={centerIcon(importanceOf(c))}>
+              <Marker
+                key={c.id}
+                position={[c.lat, c.lng]}
+                icon={centerIcon(rankWeight(i, city.centers.length))}
+              >
                 <Tooltip permanent direction="top" offset={[0, -11]} className="sx-tt sx-tt-ref">
-                  {c.short || 'Center'} {priorityStars(importanceOf(c))}
+                  {c.short || 'Center'}
+                  {city.centers.length > 1 ? ` #${i + 1}` : ''}
                 </Tooltip>
               </Marker>
             ),
           )}
 
         {Ly.airports &&
-          city.airports.map((a) =>
+          city.airports.map((a, i) =>
             a.lat == null ? null : (
-              <Marker key={a.id} position={[a.lat, a.lng]} icon={airportIcon(importanceOf(a))}>
+              <Marker
+                key={a.id}
+                position={[a.lat, a.lng]}
+                icon={airportIcon(rankWeight(i, city.airports.length))}
+              >
                 <Tooltip permanent direction="top" offset={[0, -10]} className="sx-tt sx-tt-ref">
-                  {(a.code || '?').toUpperCase()} {priorityStars(importanceOf(a))}
+                  {(a.code || '?').toUpperCase()}
+                  {city.airports.length > 1 ? ` #${i + 1}` : ''}
                 </Tooltip>
               </Marker>
             ),

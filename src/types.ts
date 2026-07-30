@@ -29,14 +29,14 @@ export interface Office {
   facts: Fact[];
 }
 
+// Transplant centers and airports are ranked by their order in the list (drag to
+// reorder); rank #1 (index 0) is the most important. Weight is derived from rank.
 export interface Center {
   id: string;
   short: string;
   address: string;
   lat: number;
   lng: number;
-  /** Relative importance 1–5 (5 = most important). Weights the access score. */
-  importance?: number;
 }
 
 export interface Airport {
@@ -45,8 +45,6 @@ export interface Airport {
   name: string;
   lat: number;
   lng: number;
-  /** Relative importance 1–5 (5 = most important). Weights the access score. */
-  importance?: number;
 }
 
 /** A TransMedics-operated aviation facility (hangar / air base) — a map reference. */

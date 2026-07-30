@@ -34,6 +34,16 @@ export function loadState(): AppState {
         if (!c.aviation) {
           c.aviation = { on: false, address: '', lat: c.center?.[0] ?? 0, lng: c.center?.[1] ?? 0 };
         }
+        // One-time migration: ranking moved from a 1–5 `importance` field to list
+        // order. Sort by any legacy importance (desc), then drop the field so a
+        // later drag-reorder isn't undone on the next load.
+        (['centers', 'airports'] as const).forEach((k) => {
+          const list = c[k] as Array<{ importance?: number }>;
+          if (list.some((x) => x.importance !== undefined)) {
+            list.sort((a, b) => (b.importance ?? 3) - (a.importance ?? 3));
+            list.forEach((x) => delete x.importance);
+          }
+        });
       });
       return loaded;
     }

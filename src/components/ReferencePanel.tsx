@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { IMPORTANCE_LEVELS, importanceOf } from '../data/factors';
 import { geocode } from '../lib/geocode';
 import { findNearby } from '../lib/places';
 import { parseStaffFile } from '../lib/staffImport';
@@ -29,7 +28,7 @@ export function ReferencePanel() {
     toggleAviation,
     setAviationAddress,
     editRef,
-    setRefImportance,
+    reorderRefs,
     removeRef,
     startAdd,
     addStaff,
@@ -48,6 +47,9 @@ export function ReferencePanel() {
   const [importBusy, setImportBusy] = useState(false);
   const [importStatus, setImportStatus] = useState<{ text: string; err: boolean } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const centersDnd = useDragRank('centers', (city?.centers ?? []).map((c) => c.id), reorderRefs);
+  const airportsDnd = useDragRank('airports', (city?.airports ?? []).map((a) => a.id), reorderRefs);
 
   async function onImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -336,20 +338,26 @@ export function ReferencePanel() {
           <FindStatusLine status={status} kind="centers" />
           {city.centers.length > 1 && <RankHint />}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[...city.centers]
-              .sort((a, b) => importanceOf(b) - importanceOf(a))
-              .map((c) => (
+            {city.centers.map((c, i) => {
+              const rp = centersDnd.rowProps(c.id);
+              return (
                 <div
                   key={c.id}
+                  onDragOver={rp.onDragOver}
+                  onDrop={rp.onDrop}
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 6,
                     paddingBottom: 12,
+                    borderRadius: 8,
+                    opacity: rp.isDragging ? 0.4 : 1,
+                    outline: rp.isOver ? '2px dashed var(--brand-primary)' : 'none',
                     borderBottom: '1px dashed var(--border-subtle)',
                   }}
                 >
                   <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+                    <RankGrip rank={i + 1} showRank={city.centers.length > 1} {...centersDnd.handleProps(c.id)} />
                     <input
                       className="sx-inp"
                       value={c.short || ''}
@@ -365,12 +373,9 @@ export function ReferencePanel() {
                     onChange={(e) => editRef('centers', c.id, 'address', e.target.value)}
                     placeholder="Full address"
                   />
-                  <ImportanceRow
-                    value={importanceOf(c)}
-                    onChange={(v) => setRefImportance('centers', c.id, v)}
-                  />
                 </div>
-              ))}
+              );
+            })}
           </div>
         </div>
 
@@ -385,42 +390,43 @@ export function ReferencePanel() {
           <FindStatusLine status={status} kind="airports" />
           {city.airports.length > 1 && <RankHint />}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[...city.airports]
-              .sort((a, b) => importanceOf(b) - importanceOf(a))
-              .map((a) => (
+            {city.airports.map((a, i) => {
+              const rp = airportsDnd.rowProps(a.id);
+              return (
                 <div
                   key={a.id}
+                  onDragOver={rp.onDragOver}
+                  onDrop={rp.onDrop}
                   style={{
                     display: 'flex',
-                    flexDirection: 'column',
-                    gap: 6,
+                    gap: 7,
+                    alignItems: 'center',
                     paddingBottom: 12,
+                    borderRadius: 8,
+                    opacity: rp.isDragging ? 0.4 : 1,
+                    outline: rp.isOver ? '2px dashed var(--brand-primary)' : 'none',
                     borderBottom: '1px dashed var(--border-subtle)',
                   }}
                 >
-                  <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
-                    <input
-                      className="sx-inp"
-                      value={a.code || ''}
-                      onChange={(e) => editRef('airports', a.id, 'code', e.target.value)}
-                      placeholder="Code"
-                      style={{ width: 64, flex: 'none', textTransform: 'uppercase', fontWeight: 700 }}
-                    />
-                    <input
-                      className="sx-inp"
-                      value={a.name || ''}
-                      onChange={(e) => editRef('airports', a.id, 'name', e.target.value)}
-                      placeholder="Airport name"
-                      style={{ flex: 1 }}
-                    />
-                    <RemoveButton onClick={() => removeRef('airports', a.id)} />
-                  </div>
-                  <ImportanceRow
-                    value={importanceOf(a)}
-                    onChange={(v) => setRefImportance('airports', a.id, v)}
+                  <RankGrip rank={i + 1} showRank={city.airports.length > 1} {...airportsDnd.handleProps(a.id)} />
+                  <input
+                    className="sx-inp"
+                    value={a.code || ''}
+                    onChange={(e) => editRef('airports', a.id, 'code', e.target.value)}
+                    placeholder="Code"
+                    style={{ width: 60, flex: 'none', textTransform: 'uppercase', fontWeight: 700 }}
                   />
+                  <input
+                    className="sx-inp"
+                    value={a.name || ''}
+                    onChange={(e) => editRef('airports', a.id, 'name', e.target.value)}
+                    placeholder="Airport name"
+                    style={{ flex: 1 }}
+                  />
+                  <RemoveButton onClick={() => removeRef('airports', a.id)} />
                 </div>
-              ))}
+              );
+            })}
           </div>
         </div>
 
@@ -644,36 +650,106 @@ function FindStatusLine({
   );
 }
 
-/** A one-line note explaining that importance drives the ranked score. */
+/** A one-line note explaining that list order sets the importance ranking. */
 function RankHint() {
   return (
     <div style={{ fontSize: 10.5, lineHeight: 1.4, color: 'var(--text-muted)', margin: '-4px 0 11px' }}>
-      Rank each by importance — higher-ranked ones weigh more in the access score, and show larger
-      on the map.
+      Drag the ⠿ handle to rank by importance — #1 (top) weighs most in the access score and shows
+      largest on the map.
     </div>
   );
 }
 
-/** Importance (1–5) selector for a transplant center / airport. */
-function ImportanceRow({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+interface RowDrag {
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent) => void;
+  isOver: boolean;
+  isDragging: boolean;
+}
+interface HandleDrag {
+  draggable: true;
+  onDragStart: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
+}
+
+/** Drag-to-reorder state for one ranked list (centers or airports). */
+function useDragRank(
+  kind: 'centers' | 'airports',
+  ids: string[],
+  reorderRefs: (kind: 'centers' | 'airports', orderedIds: string[]) => void,
+) {
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const finish = () => {
+    setDragId(null);
+    setOverId(null);
+  };
+  const drop = (targetId: string) => {
+    if (dragId && dragId !== targetId) {
+      const order = ids.slice();
+      const from = order.indexOf(dragId);
+      const to = order.indexOf(targetId);
+      if (from >= 0 && to >= 0) {
+        order.splice(from, 1);
+        order.splice(to, 0, dragId);
+        reorderRefs(kind, order);
+      }
+    }
+    finish();
+  };
+  return {
+    handleProps: (id: string): HandleDrag => ({
+      draggable: true,
+      onDragStart: (e) => {
+        setDragId(id);
+        e.dataTransfer.effectAllowed = 'move';
+        try {
+          e.dataTransfer.setData('text/plain', id);
+        } catch {
+          /* some browsers disallow setData outside user gesture */
+        }
+      },
+      onDragEnd: finish,
+    }),
+    rowProps: (id: string): RowDrag => ({
+      onDragOver: (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (overId !== id) setOverId(id);
+      },
+      onDrop: (e) => {
+        e.preventDefault();
+        drop(id);
+      },
+      isOver: overId === id && !!dragId && dragId !== id,
+      isDragging: dragId === id,
+    }),
+  };
+}
+
+/** Drag handle + rank badge for a ranked reference row. */
+function RankGrip({
+  rank,
+  showRank,
+  ...drag
+}: { rank: number; showRank: boolean } & HandleDrag) {
   return (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', flex: 'none' }}>
-        Importance
-      </span>
-      <select
-        className="sx-inp"
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        style={{ flex: 1, padding: '6px 8px', cursor: 'pointer' }}
-      >
-        {IMPORTANCE_LEVELS.map((l) => (
-          <option key={l.value} value={l.value}>
-            {l.label} ({l.value})
-          </option>
-        ))}
-      </select>
-    </label>
+    <span
+      {...drag}
+      title="Drag to reorder by importance"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 3,
+        flex: 'none',
+        cursor: 'grab',
+        userSelect: 'none',
+        color: 'var(--text-muted)',
+      }}
+    >
+      <span style={{ fontSize: 15, lineHeight: 1 }}>⠿</span>
+      {showRank && <span style={{ fontSize: 11, fontWeight: 800 }}>#{rank}</span>}
+    </span>
   );
 }
 

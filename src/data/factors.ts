@@ -68,20 +68,15 @@ export function activeFactorKeys(includeSpace: boolean): FactorKey[] {
   return FACTORS.filter((f) => includeSpace || !f.optional).map((f) => f.key);
 }
 
-/** Default importance for a newly added reference point (1–5 scale). */
-export const DEFAULT_IMPORTANCE = 3;
+// Reference points (transplant centers / airports) are ranked by their order in
+// the list — drag to reorder. The weight each contributes to the access score is
+// derived from its rank: the top item weighs 5, the bottom 1, spread linearly.
 
-/** Importance levels for ranking transplant centers / airports (high → low). */
-export const IMPORTANCE_LEVELS: { value: number; label: string }[] = [
-  { value: 5, label: 'Critical' },
-  { value: 4, label: 'High' },
-  { value: 3, label: 'Medium' },
-  { value: 2, label: 'Low' },
-  { value: 1, label: 'Minimal' },
-];
-
-/** Clamp/normalize a stored importance to the 1–5 range with a sane default. */
-export function importanceOf(r: { importance?: number }): number {
-  const n = Math.round(r.importance ?? DEFAULT_IMPORTANCE);
-  return Math.max(1, Math.min(5, Number.isFinite(n) ? n : DEFAULT_IMPORTANCE));
+/** Weight for the item at `index` in a list of `count` ranked reference points. */
+export function rankWeight(index: number, count: number): number {
+  if (count <= 1) return 5;
+  return 1 + (4 * (count - 1 - index)) / (count - 1); // rank #1 → 5 … last → 1
 }
+
+/** Weight applied to the TMDX aviation facility in the airport-access score. */
+export const AVIATION_WEIGHT = 5;
