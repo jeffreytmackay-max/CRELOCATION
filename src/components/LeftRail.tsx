@@ -162,7 +162,7 @@ function FactorWeighting() {
 }
 
 function Ranking() {
-  const { scored, selId, city, selectSite, includeSpace } = useApp();
+  const { scored, selId, city, selectSite, deleteSite, includeSpace } = useApp();
   if (!city) return null;
   return (
     <div style={{ padding: '20px 22px 26px' }}>
@@ -194,14 +194,15 @@ function Ranking() {
               : 'var(--tmdx-neutral-200)';
           const rankFg = s.isOffice || s.rank === 1 ? '#fff' : 'var(--text-body)';
           return (
+            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button
-              key={s.id}
               onClick={() => selectSite(s.id)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 12,
-                width: '100%',
+                flex: 1,
+                minWidth: 0,
                 textAlign: 'left',
                 padding: '11px 12px',
                 borderRadius: 12,
@@ -326,6 +327,30 @@ function Ranking() {
                 {s.composite}
               </span>
             </button>
+            {!s.isOffice && (
+              <button
+                onClick={() => {
+                  if (window.confirm(`Delete candidate site "${s.name}"?`)) deleteSite(s.id);
+                }}
+                title="Delete this candidate site"
+                aria-label={`Delete ${s.name}`}
+                style={{
+                  flex: 'none',
+                  width: 30,
+                  height: 30,
+                  borderRadius: 8,
+                  border: '1px solid var(--border-default)',
+                  background: '#fff',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontSize: 17,
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+            )}
+            </div>
           );
         })}
       </div>

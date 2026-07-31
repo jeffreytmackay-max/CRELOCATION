@@ -120,6 +120,8 @@ export interface Store {
   selectCity: (id: string) => void;
   deleteCity: (id: string) => void;
   selectSite: (id: string) => void;
+  /** Delete a candidate site from the current city. */
+  deleteSite: (id: string) => void;
 
   getDrive: (originId: string, refId: string) => string;
   setDrive: (originId: string, refId: string, val: string) => void;
@@ -299,6 +301,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (s && s.lat != null && mapRef.current) mapRef.current.panTo([s.lat, s.lng]);
     },
     [apply, scored],
+  );
+
+  const deleteSite = useCallback(
+    (id: string) =>
+      apply((d) => {
+        const c = findCity(d);
+        c.sites = c.sites.filter((s) => s.id !== id);
+        if (d.selectedSiteId === id) d.selectedSiteId = null;
+        // Drop any saved drive times originating from this site.
+        const cityDt = d.driveTimes[c.id];
+        if (cityDt) delete cityDt[id];
+      }),
+    [apply],
   );
 
   const flyTo = useCallback((lat: number, lng: number, zoom?: number) => {
@@ -1028,6 +1043,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     selectCity,
     deleteCity,
     selectSite,
+    deleteSite,
     getDrive,
     setDrive,
     togglePanel,
