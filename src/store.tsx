@@ -13,6 +13,7 @@ import { AVIATION_WEIGHT, DEFAULT_WEIGHTS, rankWeight } from './data/factors';
 import { minutesToScore, normalize, scoreCity } from './lib/scoring';
 import { geocode } from './lib/geocode';
 import { departureTimestamp, matrix } from './lib/drivetimes';
+import { fetchCrimeScores } from './lib/crime';
 import type { DiscoveredPlace } from './lib/places';
 import {
   exportState,
@@ -93,6 +94,8 @@ export interface Store {
    * factors untouched. Returns how many sites were updated (or an error).
    */
   autoScoreCity: () => Promise<{ scored: number; error?: string }>;
+  /** Auto-score the crime factor from the ZIP-level crime API. */
+  autoScoreCrime: () => Promise<{ scored: number; error?: string }>;
 
   /** A proximity-optimal office location suggestion, or null. */
   suggestion: Suggestion | null;
@@ -456,7 +459,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           short,
           lat,
           lng,
-          scores: { hospital: 70, airport: 70, commute: 70, space: 70 },
+          scores: { hospital: 70, airport: 70, commute: 70, crime: 70, space: 70 },
           note: 'Added by search — adjust its factor scores and facts.',
           facts: [
             ['Asking rent', '—'],
@@ -563,6 +566,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
     });
     return { scored: updates.size };
+  }, [city, apply]);
+
+  const autoScoreCrime = useCallback(async (): Promise<{ scored: number; error?: string }> => {
+    if (!city) return { scored: 0, error: 'No city selected.' };
+    const sites = city.sites
+      .filter((s) => s.lat != null && s.lng != null)
+      .map((s) => ({ id: s.id, lat: s.lat, lng: s.lng }));
+    if (!sites.length) return { scored: 0, error: 'Add candidate sites first.' };
+
+    let results;
+    try {
+      results = await fetchCrimeScores(sites);
+    } catch (e) {
+      return { scored: 0, error: e instanceof Error ? e.message : 'Crime lookup failed.' };
+    }
+    const scoreById = new Map<string, number>();
+    let firstErr = '';
+    results.forEach((r) => {
+      if (r.score != null) scoreById.set(r.id, Math.max(0, Math.min(100, Math.round(r.score))));
+      else if (r.error && !firstErr) firstErr = r.error;
+    });
+    if (!scoreById.size) {
+      return { scored: 0, error: firstErr || 'No crime scores returned for these locations.' };
+    }
+    apply((d) => {
+      const c = findCity(d);
+      scoreById.forEach((score, id) => {
+        const s = c.sites.find((x) => x.id === id);
+        if (s) s.scores.crime = score;
+      });
+    });
+    return { scored: scoreById.size };
   }, [city, apply]);
 
   /** The editable target for an id: a real site, or the office for "__office". */
@@ -849,7 +884,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             short: nm || 'New site',
             lat,
             lng,
-            scores: { hospital: 70, airport: 70, commute: 70, space: 70 },
+            scores: { hospital: 70, airport: 70, commute: 70, crime: 70, space: 70 },
             note: 'New candidate site — adjust its factor scores and facts.',
             facts: [
               ['Asking rent', '—'],
@@ -923,7 +958,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             address: '',
             lat: clat,
             lng: clng,
-            scores: { hospital: 70, airport: 70, commute: 70, space: 70 },
+            scores: { hospital: 70, airport: 70, commute: 70, crime: 70, space: 70 },
             note: 'Your current office — scored on the same factors as a benchmark for the candidate sites.',
             facts: [['Status', 'Current office']],
           },
@@ -977,6 +1012,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     editSite,
     addSiteAt,
     autoScoreCity,
+    autoScoreCrime,
     suggestion,
     suggestOffice,
     clearSuggestion,

@@ -35,6 +35,13 @@ export const FACTORS: FactorDef[] = [
     desc: 'Drive-time & transit for current employees',
   },
   {
+    key: 'crime',
+    short: 'Crime & safety',
+    label: 'Crime & safety',
+    color: '#740223',
+    desc: 'Local crime rates & personal safety (by ZIP)',
+  },
+  {
     key: 'space',
     short: 'Real estate supply',
     label: 'Real estate supply',
@@ -48,6 +55,7 @@ export const DEFAULT_WEIGHTS: Scores = {
   hospital: 85,
   airport: 75,
   commute: 55,
+  crime: 50,
   space: 45,
 };
 
@@ -58,6 +66,11 @@ export const FACTOR_ICON_PATHS: Record<FactorKey, string[]> = {
     'M17.8 19.2 16 11l3.5-3.5c1.5-1.5 2-3.5 1.5-4-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z',
   ],
   commute: ['M3 11 22 2l-9 19-2-8-8-2z'],
+  crime: [
+    'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z',
+    'M12 9v4',
+    'M12 17h.01',
+  ],
   space: [
     'M4 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M4 22h14M8 6h.01M8 10h.01M8 14h.01M12 6h.01M12 10h.01M12 14h.01',
   ],

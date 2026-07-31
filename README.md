@@ -15,7 +15,7 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
 ## Features
 
 - **Live weighted scoring.** Factor sliders (transplant centers, airport access,
-  staff commute, and an optional real-estate supply) write raw 0–100 weights that
+  staff commute, crime & safety, and an optional real-estate supply) write raw 0–100 weights that
   are normalized to 100%. Composite = Σ(rawFactorScore × normalizedWeight).
   Changing any slider re-scores, re-ranks, and re-sizes/re-colors the map pins
   instantly. (Sites saved before a factor existed treat it as a neutral score
@@ -56,10 +56,14 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   (asking rent, available space, …) — for candidate sites and the office. This is
   how you put in real figures, since there's no live real-estate data feed.
 - **Auto-score factors.** New sites start at a neutral 70 (flagged **Unscored**
-  in the ranking). **Auto-score from drive times** fills the access factors for
-  every site — transplant-center, airport-access and staff-commute from
-  traffic-aware Google drive times (closer = higher, typical weekday-8am).
-  Real-estate supply, when enabled, is set by hand.
+  in the ranking). **Auto-score from drive times + crime** fills five factors for
+  every site: transplant-center, airport-access and staff-commute from
+  traffic-aware Google drive times (closer = higher, typical weekday-8am), and
+  **crime & safety** from a ZIP-level crime API (`/api/crime`, Zyla Labs — each
+  site's ZIP is reverse-geocoded when needed, then the overall crime grade maps
+  to a 0–100 safety score). The two data sources run independently, so one works
+  even if the other's key isn't configured. Real-estate supply, when enabled, is
+  set by hand.
 - **Office benchmark.** Enable the current office to inject it into the ranked
   list as a "Current" pseudo-site scored on the same factors.
 - **Add on map.** Drop new candidate sites, transplant centers, airports, or
@@ -143,6 +147,7 @@ npm run preview  # preview the production build
 | --------------------- | ---------------- | -------------------------------------------------------------- |
 | `GOOGLE_MAPS_API_KEY` | server-side only | Drive-time auto-fill (`/api/drivetimes`, Distance Matrix API), Find-nearby discovery (`/api/places`, Places API), search-to-add + map search (`/api/geocode`, Geocoding API), and the detail-panel location image (`/api/streetview`, Street View Static API + Maps Static API). Never exposed to the browser. |
 | `AIRPORTDB_API_TOKEN`  | server-side only | Airport lookup by ICAO (`/api/airport`, AirportDB.io) — official name, coordinates, IATA code, runways. Optional; free token from [airportdb.io](https://airportdb.io/). |
+| `Crime_DATA`           | server-side only | Crime & safety auto-score (`/api/crime`, Zyla Labs "Crime Data by Zipcode"). Optional; without it the crime auto-score is skipped. ZIP reverse-geocoding reuses `GOOGLE_MAPS_API_KEY`. |
 
 **Vercel:** Project → Settings → Environment Variables → add the keys
 (all environments) → redeploy. In the [Google Cloud console](https://console.cloud.google.com/),
@@ -166,6 +171,7 @@ api/
   airport.js            # Vercel function: AirportDB.io lookup by ICAO code
   nearby-airports.js    # Vercel function: nearby airports from OurAirports data
   _airports.json        # bundled OurAirports subset (large + medium airports)
+  crime.js              # Vercel function: Zyla crime-by-ZIP → safety score
 src/
   main.tsx              # entry
   App.tsx               # layout: header, nav, three columns, overlays
@@ -180,6 +186,7 @@ src/
     places.ts           # client for /api/places (find nearby)
     geocode.ts          # client for /api/geocode (search-to-add + map search)
     airport.ts          # client for /api/airport (AirportDB ICAO lookup)
+    crime.ts            # client for /api/crime (Zyla crime-by-ZIP)
     staffImport.ts      # parse an uploaded .xlsx/.csv of staff (SheetJS, lazy)
   components/
     Header.tsx          # brand + data actions
