@@ -13,6 +13,31 @@
 
 const MAX_SITES = 25;
 
+/** Read the Zyla key tolerantly of casing/naming (env var names are case-sensitive). */
+function resolveCrimeKey() {
+  const explicit = [
+    'CRIME_DATA',
+    'Crime_DATA',
+    'crime_data',
+    'Crime_Data',
+    'CRIME_API_KEY',
+    'ZYLA_API_KEY',
+    'ZYLA_CRIME_API_KEY',
+  ];
+  for (const n of explicit) {
+    const v = process.env[n];
+    if (v && String(v).trim()) return String(v).trim();
+  }
+  // Last resort: any env var whose name mentions "crime".
+  for (const n of Object.keys(process.env)) {
+    if (/crime/i.test(n)) {
+      const v = process.env[n];
+      if (v && String(v).trim()) return String(v).trim();
+    }
+  }
+  return '';
+}
+
 const zylaUrl = (zip) =>
   `https://zylalabs.com/api/824/crime+data+by+zipcode+api/583/get+crime+rates+by+zip?zip=${encodeURIComponent(zip)}`;
 
@@ -92,12 +117,12 @@ async function fetchZyla(zip, key) {
 }
 
 export default async function handler(req, res) {
-  const key = process.env.Crime_DATA;
+  const key = resolveCrimeKey();
 
   // Debug: GET ?zip=01370&debug=1 → raw Zyla response, so the shape can be
   // confirmed from a browser. No key is exposed (crime data is public).
   if (req.method === 'GET' && req.query && req.query.debug) {
-    if (!key) return res.status(500).json({ error: 'Missing Crime_DATA env var.' });
+    if (!key) return res.status(500).json({ error: 'Missing CRIME_DATA env var (checked common names).' });
     const zip = String(req.query.zip || '01370').replace(/[^0-9]/g, '').slice(0, 5) || '01370';
     try {
       const r = await fetch(zylaUrl(zip), { headers: { Authorization: `Bearer ${key}` } });
@@ -121,8 +146,9 @@ export default async function handler(req, res) {
   if (!key) {
     return res.status(500).json({
       error:
-        'Missing Crime_DATA. Add your Zyla API key as Crime_DATA in Vercel → Project → Settings → ' +
-        'Environment Variables, then redeploy.',
+        'Missing crime API key. Add your Zyla key as CRIME_DATA in Vercel → Project → Settings → ' +
+        'Environment Variables (Production), then Redeploy — new env vars only apply to deployments ' +
+        'created after they are added.',
     });
   }
 
