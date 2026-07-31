@@ -67,23 +67,48 @@ function findByKey(obj, re, depth = 0) {
   return undefined;
 }
 
+// Blend of the sub-grades into the safety score, weighting violent crime most
+// (staff safety). Weights are renormalized over whichever grades are present.
+const CRIME_WEIGHTS = { violent: 0.6, property: 0.3, other: 0.1 };
+
 /** Map a Zyla crime response to a 0–100 safety score (higher = safer). */
 function parseSafety(data) {
-  // Preferred: an overall letter grade (A–F).
-  const grade =
-    findByKey(data, /overall.*crime.*grade/i) ??
-    findByKey(data, /overall.*grade/i) ??
-    findByKey(data, /\bgrade\b/i);
-  const gs = grade != null ? gradeToScore(grade) : null;
-  if (gs != null) return { score: gs, grade: String(grade).trim().toUpperCase() };
+  const gradeScore = (re) => {
+    const v = findByKey(data, re);
+    return v != null ? gradeToScore(v) : null;
+  };
+  const overallRaw = findByKey(data, /overall.*crime.*grade/i) ?? findByKey(data, /overall.*grade/i);
+  const overallGrade = overallRaw != null ? String(overallRaw).trim().toUpperCase() : undefined;
 
-  // Fallback: a numeric overall score/index. Convention varies, so assume a
-  // 0–100 where higher = more crime → invert to a safety score.
+  // Preferred: violent-weighted blend of the violent / property / other grades.
+  const parts = [
+    [gradeScore(/violent.*grade/i), CRIME_WEIGHTS.violent],
+    [gradeScore(/property.*grade/i), CRIME_WEIGHTS.property],
+    [gradeScore(/other.*grade/i), CRIME_WEIGHTS.other],
+  ].filter(([s]) => s != null);
+  if (parts.length) {
+    const wsum = parts.reduce((a, [, w]) => a + w, 0);
+    const score = Math.round(parts.reduce((a, [s, w]) => a + s * w, 0) / wsum);
+    return {
+      score: Math.max(0, Math.min(100, score)),
+      grade: overallGrade,
+      breakdown: {
+        violent: gradeScore(/violent.*grade/i),
+        property: gradeScore(/property.*grade/i),
+        other: gradeScore(/other.*grade/i),
+      },
+    };
+  }
+
+  // Fallback: the single overall letter grade.
+  const gs = overallGrade ? gradeToScore(overallGrade) : null;
+  if (gs != null) return { score: gs, grade: overallGrade };
+
+  // Last resort: a numeric overall score/index (assume higher = more crime).
   const raw = findByKey(data, /overall.*(score|index|rate)/i);
   const num = raw != null ? Number(String(raw).replace(/[^0-9.]/g, '')) : NaN;
-  if (Number.isFinite(num)) {
-    const safety = num <= 100 ? Math.round(100 - num) : null;
-    if (safety != null) return { score: Math.max(0, Math.min(100, safety)), index: num };
+  if (Number.isFinite(num) && num <= 100) {
+    return { score: Math.max(0, Math.min(100, Math.round(100 - num))), index: num };
   }
   return { score: null, error: 'Could not read a crime score from the response.' };
 }

@@ -60,8 +60,9 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   every site: transplant-center, airport-access and staff-commute from
   traffic-aware Google drive times (closer = higher, typical weekday-8am), and
   **crime & safety** from a ZIP-level crime API (`/api/crime`, Zyla Labs — each
-  site's ZIP is reverse-geocoded when needed, then the overall crime grade maps
-  to a 0–100 safety score). The two data sources run independently, so one works
+  site's ZIP is reverse-geocoded when needed, then the violent / property / other
+  crime grades map to a 0–100 safety score, weighted 60/30/10 toward violent
+  crime for staff safety). The two data sources run independently, so one works
   even if the other's key isn't configured. Real-estate supply, when enabled, is
   set by hand.
 - **Office benchmark.** Enable the current office to inject it into the ranked
