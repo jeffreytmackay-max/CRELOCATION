@@ -88,7 +88,7 @@ export function Header() {
         Saved locally
       </span>
       <button className="sx-btn sx-btn-sm sx-btn-secondary" onClick={exportData}>
-        Export
+        Export PDF
       </button>
       <button
         className="sx-btn sx-btn-sm sx-btn-secondary"

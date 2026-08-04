@@ -15,13 +15,8 @@ import { geocode } from './lib/geocode';
 import { departureTimestamp, matrix } from './lib/drivetimes';
 import { fetchCrimeScores } from './lib/crime';
 import type { DiscoveredPlace } from './lib/places';
-import {
-  exportState,
-  freshState,
-  loadState,
-  parseImport,
-  saveState,
-} from './lib/storage';
+import { freshState, loadState, parseImport, saveState } from './lib/storage';
+import { exportPdf } from './lib/pdfExport';
 import type { AddKind, AppState, City, FactorKey, ScoredSite } from './types';
 
 let idCounter = 0;
@@ -993,7 +988,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [apply],
   );
 
-  const exportData = useCallback(() => exportState(state), [state]);
+  const exportData = useCallback(() => {
+    exportPdf(state).then((ok) => {
+      if (!ok) window.alert('Add a city with candidate sites before exporting.');
+    }).catch(() => window.alert('Could not generate the PDF report.'));
+  }, [state]);
   const importData = useCallback(async (file: File) => {
     const text = await file.text();
     const data = parseImport(text);
