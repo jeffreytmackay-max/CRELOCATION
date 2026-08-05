@@ -1,21 +1,23 @@
-// Export a comprehensive PowerPoint deck covering every city and every section.
+// Export a comprehensive PowerPoint deck covering every city and every section,
+// styled to the TransMedics brand & collateral standards (crimson + peach accent,
+// charcoal ink, cream surfaces, Mulish type, logo header, crimson section rule,
+// confidentiality footer, faint monogram watermark on cover / divider slides).
 //
 // PptxGenJS is dynamically imported so it code-splits and only loads on export.
-// Per city: recommendation, factor weighting, ranked candidates, factor
-// breakdown, a rendered location map (Google Static Maps via /api/staticmap),
-// employee-commute drive times (Distance Matrix via /api/drivetimes), reference
-// points, and staff.
 
 import { FACTORS, activeFactorKeys } from '../data/factors';
 import { normalize, scoreCity, scoreOf } from './scoring';
 import type { AppState, FactorKey } from '../types';
 
+// Brand palette (design system).
+const FONT = 'Mulish';
 const CRIMSON = '9D2235';
-const SLATE = '44546A';
+const WINE = '740223';
+const PEACH = 'FFAE81';
 const INK = '302F32';
-const MUTED = '7A787A';
-const LIGHT = 'F7F5F4';
-const LINE = 'E3DDDB';
+const CREAM = 'EFECEA';
+const BORDER = 'DAD3D1';
+const MUTED = '8A8483';
 const WHITE = 'FFFFFF';
 
 const COMPACT: Record<FactorKey, string> = {
@@ -67,38 +69,63 @@ export async function exportPptx(state: AppState): Promise<{ ok: boolean; error?
   const { matrix, departureTimestamp } = await import('./drivetimes');
   const PptxGenJS = (await import('pptxgenjs')).default;
   const pptx = new PptxGenJS();
-  pptx.layout = 'LAYOUT_WIDE'; // 13.33 × 7.5 in
-  pptx.author = 'TransMedics OCS Network';
+  pptx.layout = 'LAYOUT_WIDE'; // 13.33 × 7.5 in (16:9)
+  pptx.author = 'TransMedics Group, Inc.';
+  pptx.company = 'TransMedics';
   pptx.title = 'Site Selection Explorer';
   const W = 13.33;
   const H = 7.5;
-
+  const CY = 2.05; // content top (below the section heading + crimson rule)
   const rect = pptx.ShapeType.rect;
-  const section = (title: string, cityLabel: string) => {
+  const roundRect = pptx.ShapeType.roundRect;
+
+  // Placeholder "m" monogram lockup (crimson tile + wordmark).
+  type Slide = ReturnType<typeof pptx.addSlide>;
+  const lockup = (s: Slide, x: number, y: number, onDark = false) => {
+    s.addShape(roundRect, { x, y, w: 0.32, h: 0.32, rectRadius: 0.06, fill: { color: onDark ? WHITE : CRIMSON } });
+    s.addText('m', { x, y: y - 0.03, w: 0.32, h: 0.38, align: 'center', valign: 'middle', fontFace: FONT, bold: true, fontSize: 15, color: onDark ? CRIMSON : WHITE });
+    s.addText('TransMedics', { x: x + 0.4, y: y - 0.03, w: 2.6, h: 0.38, valign: 'middle', fontFace: FONT, bold: true, fontSize: 14, color: onDark ? WHITE : INK });
+  };
+  // Faint oversized monogram bleeding off the bottom-right corner.
+  const watermark = (s: Slide, color: string) =>
+    s.addText('m', { x: 9.6, y: 3.2, w: 5, h: 5, fontFace: FONT, bold: true, fontSize: 230, color, align: 'center', valign: 'middle' });
+
+  // Branded content-slide chrome: logo header, eyebrow, section heading with a
+  // crimson rule, and the confidentiality footer. Content starts at CY.
+  const chrome = (title: string, cityLabel: string) => {
     const s = pptx.addSlide();
     s.background = { color: WHITE };
-    s.addShape(rect, { x: 0, y: 0, w: W, h: 0.85, fill: { color: CRIMSON } });
-    s.addText(title, { x: 0.5, y: 0, w: W - 1, h: 0.85, fontFace: 'Arial', fontSize: 22, bold: true, color: WHITE, valign: 'middle' });
-    s.addText(`${cityLabel} · TransMedics OCS Network`, { x: 0.5, y: H - 0.4, w: W - 1, h: 0.3, fontSize: 9, color: MUTED, valign: 'middle' });
+    lockup(s, 0.5, 0.42);
+    s.addText('SITE SELECTION EXPLORER', { x: W - 5, y: 0.46, w: 4.5, h: 0.3, align: 'right', fontFace: FONT, bold: true, fontSize: 9, color: MUTED, charSpacing: 2 });
+    s.addShape(rect, { x: 0.5, y: 0.92, w: W - 1, h: 0.014, fill: { color: BORDER } });
+    s.addText(title, { x: 0.5, y: 1.12, w: W - 1, h: 0.55, fontFace: FONT, bold: true, fontSize: 26, color: INK, valign: 'middle' });
+    s.addShape(rect, { x: 0.5, y: 1.78, w: W - 1, h: 0.022, fill: { color: CRIMSON } });
+    s.addShape(rect, { x: 0.5, y: H - 0.52, w: W - 1, h: 0.014, fill: { color: BORDER } });
+    s.addText('TRANSMEDICS PROPRIETARY & CONFIDENTIAL', { x: 0.5, y: H - 0.45, w: 8, h: 0.3, fontFace: FONT, fontSize: 8, color: MUTED, charSpacing: 1.2, valign: 'middle' });
+    s.addText(cityLabel, { x: W - 5, y: H - 0.45, w: 4.5, h: 0.3, align: 'right', fontFace: FONT, fontSize: 8, color: MUTED, valign: 'middle' });
     return s;
   };
+
   const headerRow = (labels: string[]) =>
     labels.map((t) => ({ text: t, options: { fill: { color: CRIMSON }, color: WHITE, bold: true, align: 'center' as const, valign: 'middle' as const } }));
   const tableOpts = (x: number, y: number, w: number, colW: number[], fontSize = 10) => ({
     x, y, w, colW,
-    border: { type: 'solid' as const, pt: 0.5, color: LINE },
-    fontFace: 'Arial', fontSize, color: INK, valign: 'middle' as const, autoPage: false,
+    border: { type: 'solid' as const, pt: 0.5, color: BORDER },
+    fontFace: FONT, fontSize, color: INK, valign: 'middle' as const, autoPage: false,
   });
 
-  // ---- Title slide ----
+  // ---- Cover slide ----
   {
     const s = pptx.addSlide();
     s.background = { color: CRIMSON };
-    s.addText('TRANSMEDICS OCS NETWORK', { x: 0.7, y: 2.3, w: 12, h: 0.4, fontFace: 'Arial', fontSize: 14, bold: true, color: 'F2B8C1', charSpacing: 3 });
-    s.addText('Site Selection Explorer', { x: 0.7, y: 2.75, w: 12, h: 1, fontFace: 'Arial', fontSize: 40, bold: true, color: WHITE });
+    watermark(s, WINE);
+    lockup(s, 0.7, 0.7, true);
+    s.addText('TRANSMEDICS OCS NETWORK', { x: 0.72, y: 2.35, w: 12, h: 0.4, fontFace: FONT, bold: true, fontSize: 13, color: PEACH, charSpacing: 3 });
+    s.addText('Site selection explorer', { x: 0.68, y: 2.8, w: 12, h: 1, fontFace: FONT, fontSize: 42, color: WHITE, charSpacing: -0.5 });
     const sub = cities.length === 1 ? `${cities[0].name}${cities[0].state ? `, ${cities[0].state}` : ''}` : `${cities.length} metros analyzed`;
-    s.addText(sub, { x: 0.7, y: 3.95, w: 12, h: 0.6, fontFace: 'Arial', fontSize: 22, color: WHITE });
-    s.addText(`Generated ${fmtDate(new Date())}`, { x: 0.7, y: 4.55, w: 12, h: 0.4, fontFace: 'Arial', fontSize: 12, color: 'F2B8C1' });
+    s.addText(sub, { x: 0.72, y: 4.05, w: 12, h: 0.6, fontFace: FONT, fontSize: 22, color: WHITE });
+    s.addText(`Generated ${fmtDate(new Date())}`, { x: 0.72, y: 4.7, w: 12, h: 0.4, fontFace: FONT, fontSize: 12, color: PEACH });
+    s.addText('TRANSMEDICS PROPRIETARY & CONFIDENTIAL INFORMATION', { x: 0.72, y: H - 0.55, w: 11, h: 0.3, fontFace: FONT, fontSize: 8, color: PEACH, charSpacing: 1.2 });
   }
 
   for (const city of cities) {
@@ -109,57 +136,60 @@ export async function exportPptx(state: AppState): Promise<{ ok: boolean; error?
     // City divider (only when multiple cities).
     if (cities.length > 1) {
       const s = pptx.addSlide();
-      s.background = { color: SLATE };
-      s.addText(cityLabel, { x: 0.7, y: 3.0, w: 12, h: 1, fontFace: 'Arial', fontSize: 34, bold: true, color: WHITE });
-      s.addText(`${candidates.length} candidate site${candidates.length === 1 ? '' : 's'}`, { x: 0.72, y: 4.0, w: 12, h: 0.5, fontFace: 'Arial', fontSize: 16, color: 'D9DEE6' });
+      s.background = { color: INK };
+      watermark(s, '3B3A3E');
+      lockup(s, 0.7, 0.7, true);
+      s.addText('METRO', { x: 0.72, y: 2.7, w: 12, h: 0.35, fontFace: FONT, bold: true, fontSize: 12, color: PEACH, charSpacing: 3 });
+      s.addText(cityLabel, { x: 0.68, y: 3.1, w: 12, h: 1, fontFace: FONT, fontSize: 36, color: WHITE, charSpacing: -0.5 });
+      s.addText(`${candidates.length} candidate site${candidates.length === 1 ? '' : 's'}`, { x: 0.72, y: 4.15, w: 12, h: 0.5, fontFace: FONT, fontSize: 16, color: 'C9C6C7' });
     }
 
     // ---- Recommendation ----
     {
-      const s = section('Recommendation', cityLabel);
+      const s = chrome('Recommendation', cityLabel);
       if (!candidates.length) {
-        s.addText('No candidate sites yet — add sites to generate a recommendation.', { x: 0.6, y: 3, w: 12, h: 0.6, fontSize: 14, color: MUTED });
+        s.addText('No candidate sites yet — add sites to generate a recommendation.', { x: 0.5, y: CY, w: 12, h: 0.6, fontFace: FONT, fontSize: 14, color: MUTED });
       } else {
         const top = candidates[0];
-        s.addShape(rect, { x: 0.6, y: 1.3, w: 4.2, h: 2.4, fill: { color: LIGHT }, line: { color: LINE, width: 1 } });
-        s.addText(`#${top.rank}`, { x: 0.8, y: 1.45, w: 3.8, h: 0.4, fontSize: 12, bold: true, color: CRIMSON });
-        s.addText(top.name, { x: 0.8, y: 1.8, w: 3.8, h: 0.8, fontSize: 22, bold: true, color: INK });
-        s.addText(top.area || cityLabel, { x: 0.8, y: 2.5, w: 3.8, h: 0.4, fontSize: 12, color: MUTED });
-        s.addText([{ text: `${top.composite}`, options: { fontSize: 44, bold: true, color: CRIMSON } }, { text: ' /100', options: { fontSize: 16, color: MUTED } }], { x: 0.8, y: 2.9, w: 3.8, h: 0.7 });
+        s.addShape(roundRect, { x: 0.5, y: CY, w: 4.3, h: 2.5, rectRadius: 0.12, fill: { color: CREAM }, line: { color: BORDER, width: 1 } });
+        s.addText('TOP RECOMMENDATION', { x: 0.72, y: CY + 0.16, w: 3.9, h: 0.3, fontFace: FONT, bold: true, fontSize: 9, color: CRIMSON, charSpacing: 2 });
+        s.addText(`#${top.rank}  ${top.name}`, { x: 0.72, y: CY + 0.5, w: 3.9, h: 0.7, fontFace: FONT, bold: true, fontSize: 20, color: INK });
+        s.addText(top.area || cityLabel, { x: 0.72, y: CY + 1.15, w: 3.9, h: 0.35, fontFace: FONT, fontSize: 12, color: MUTED });
+        s.addText([{ text: `${top.composite}`, options: { fontSize: 44, color: CRIMSON, bold: true } }, { text: '  /100 weighted score', options: { fontSize: 13, color: MUTED } }], { x: 0.72, y: CY + 1.55, w: 3.9, h: 0.7, fontFace: FONT });
         const contrib = factors
           .map((f) => ({ label: f.label, c: scoreOf(top.scores, f.key) * norm[f.key] }))
           .sort((a, b) => b.c - a.c)
           .slice(0, 3)
-          .map((x2) => `• ${x2.label}`);
-        s.addText('Strongest factors', { x: 5.2, y: 1.4, w: 7.4, h: 0.4, fontSize: 12, bold: true, color: MUTED });
-        s.addText(contrib.join('\n'), { x: 5.2, y: 1.8, w: 7.4, h: 1.4, fontSize: 15, color: INK, lineSpacingMultiple: 1.3 });
+          .map((x2) => `•  ${x2.label}`);
+        s.addText('STRONGEST FACTORS', { x: 5.2, y: CY + 0.05, w: 7.4, h: 0.4, fontFace: FONT, bold: true, fontSize: 9, color: MUTED, charSpacing: 2 });
+        s.addText(contrib.join('\n'), { x: 5.2, y: CY + 0.45, w: 7.4, h: 1.4, fontFace: FONT, fontSize: 15, color: INK, lineSpacingMultiple: 1.35 });
         if (candidates.length > 1) {
-          s.addText('Runners-up', { x: 5.2, y: 3.4, w: 7.4, h: 0.4, fontSize: 12, bold: true, color: MUTED });
-          s.addText(candidates.slice(1, 4).map((s2) => `#${s2.rank}  ${s2.name} — ${s2.composite}`).join('\n'), { x: 5.2, y: 3.8, w: 7.4, h: 1.6, fontSize: 14, color: INK, lineSpacingMultiple: 1.3 });
+          s.addText('RUNNERS-UP', { x: 5.2, y: CY + 2.0, w: 7.4, h: 0.4, fontFace: FONT, bold: true, fontSize: 9, color: MUTED, charSpacing: 2 });
+          s.addText(candidates.slice(1, 4).map((s2) => `#${s2.rank}   ${s2.name} — ${s2.composite}`).join('\n'), { x: 5.2, y: CY + 2.4, w: 7.4, h: 1.6, fontFace: FONT, fontSize: 14, color: INK, lineSpacingMultiple: 1.35 });
         }
       }
     }
 
     // ---- Factor weighting (bars) ----
     {
-      const s = section('Factor weighting', cityLabel);
-      let y = 1.3;
+      const s = chrome('Factor weighting', cityLabel);
+      let y = CY + 0.15;
       const barX = 4.3;
       const barMax = 7.2;
       factors.forEach((f) => {
         const pct = Math.round(norm[f.key] * 100);
-        s.addText(f.short, { x: 0.6, y, w: 3.5, h: 0.4, fontSize: 13, color: INK, valign: 'middle' });
-        s.addShape(rect, { x: barX, y: y + 0.05, w: barMax, h: 0.3, fill: { color: LIGHT } });
-        s.addShape(rect, { x: barX, y: y + 0.05, w: Math.max(0.04, (barMax * pct) / 100), h: 0.3, fill: { color: hex(f.color) } });
-        s.addText(`${pct}%`, { x: barX + barMax + 0.15, y, w: 1, h: 0.4, fontSize: 12, bold: true, color: INK, valign: 'middle' });
+        s.addText(f.short, { x: 0.6, y, w: 3.5, h: 0.4, fontFace: FONT, fontSize: 13, color: INK, valign: 'middle' });
+        s.addShape(rect, { x: barX, y: y + 0.06, w: barMax, h: 0.3, fill: { color: CREAM } });
+        s.addShape(rect, { x: barX, y: y + 0.06, w: Math.max(0.04, (barMax * pct) / 100), h: 0.3, fill: { color: hex(f.color) } });
+        s.addText(`${pct}%`, { x: barX + barMax + 0.15, y, w: 1, h: 0.4, fontFace: FONT, fontSize: 12, bold: true, color: INK, valign: 'middle' });
         y += 0.66;
       });
-      s.addText('Weights are normalized to 100% across the active factors.', { x: 0.6, y: y + 0.1, w: 11, h: 0.4, fontSize: 10, italic: true, color: MUTED });
+      s.addText('Weights are normalized to 100% across the active factors.', { x: 0.6, y: y + 0.1, w: 11, h: 0.4, fontFace: FONT, fontSize: 10, italic: true, color: MUTED });
     }
 
-    // ---- Location map ----
+    // ---- Location overview ----
     {
-      const s = section('Location overview', cityLabel);
+      const s = chrome('Location overview', cityLabel);
       const payload = {
         sites: city.sites.filter(finite).map(xy),
         centers: city.centers.filter(finite).map(xy),
@@ -172,29 +202,29 @@ export async function exportPptx(state: AppState): Promise<{ ok: boolean; error?
       const hasPoints = payload.sites.length + payload.centers.length + payload.airports.length + payload.staff.length > 0;
       const dataUrl = hasPoints ? await fetchMapDataUrl(payload) : null;
       if (dataUrl) {
-        s.addImage({ data: dataUrl, x: 0.5, y: 1.1, w: 8.5, h: 5.31 });
+        s.addImage({ data: dataUrl, x: 0.5, y: CY, w: 7.5, h: 4.69 });
         const legend: [string, string][] = [
           ['D62828', 'Candidate sites'],
-          ['9D2235', 'Transplant centers'],
+          [CRIMSON, 'Transplant centers'],
           ['44546A', 'Airports'],
           ['0E7490', 'TMDX aviation'],
-          ['302F32', 'Current office'],
+          [INK, 'Current office'],
           ['1F8F5F', 'Staff'],
         ];
-        s.addText('Legend', { x: 9.4, y: 1.2, w: 3.4, h: 0.4, fontSize: 13, bold: true, color: MUTED });
+        s.addText('LEGEND', { x: 8.4, y: CY + 0.1, w: 3.4, h: 0.4, fontFace: FONT, bold: true, fontSize: 10, color: MUTED, charSpacing: 2 });
         legend.forEach(([c, label], i) => {
-          const yy = 1.75 + i * 0.5;
-          s.addShape(rect, { x: 9.45, y: yy, w: 0.28, h: 0.28, fill: { color: c } });
-          s.addText(label, { x: 9.85, y: yy - 0.06, w: 3.2, h: 0.4, fontSize: 13, color: INK, valign: 'middle' });
+          const yy = CY + 0.6 + i * 0.5;
+          s.addShape(rect, { x: 8.45, y: yy, w: 0.28, h: 0.28, fill: { color: c } });
+          s.addText(label, { x: 8.85, y: yy - 0.06, w: 3.2, h: 0.4, fontFace: FONT, fontSize: 13, color: INK, valign: 'middle' });
         });
       } else {
-        s.addText('Map preview unavailable — enable the Maps Static API on the Google key and place points on the map.', { x: 0.6, y: 1.4, w: 12, h: 0.8, fontSize: 13, color: MUTED });
+        s.addText('Map preview unavailable — enable the Maps Static API on the Google key and place points on the map.', { x: 0.5, y: CY, w: 12, h: 0.8, fontFace: FONT, fontSize: 13, color: MUTED });
       }
     }
 
     // ---- Ranked candidates ----
     {
-      const s = section('Ranked candidates', cityLabel);
+      const s = chrome('Ranked candidates', cityLabel);
       const heads = ['#', 'Candidate', 'Area', 'Score', ...factors.map((f) => COMPACT[f.key])];
       const base = [0.5, 2.6, 2.4, 0.9];
       const fw = (12.33 - base.reduce((a, b) => a + b, 0)) / factors.length;
@@ -202,7 +232,7 @@ export async function exportPptx(state: AppState): Promise<{ ok: boolean; error?
       const rows = [
         headerRow(heads),
         ...scored.map((s2) => {
-          const fill = s2.isOffice ? 'EDEAE9' : undefined;
+          const fill = s2.isOffice ? CREAM : undefined;
           const cells = [
             { text: s2.isOffice ? '—' : String(s2.rank), options: { align: 'center' as const } },
             { text: s2.isOffice ? `${s2.name} (current)` : s2.name, options: {} },
@@ -213,13 +243,13 @@ export async function exportPptx(state: AppState): Promise<{ ok: boolean; error?
           return cells.map((c) => ({ ...c, options: { ...c.options, ...(fill ? { fill: { color: fill } } : {}) } }));
         }),
       ];
-      s.addTable(rows, tableOpts(0.5, 1.15, 12.33, colW));
+      s.addTable(rows, tableOpts(0.5, CY, 12.33, colW));
     }
 
     // ---- Factor breakdown (top site) ----
     if (candidates.length) {
       const top = candidates[0];
-      const s = section(`Factor breakdown — ${top.name}`, cityLabel);
+      const s = chrome(`Factor breakdown — ${top.name}`, cityLabel);
       const rows = [
         headerRow(['Factor', 'Score', 'Weight', 'Contribution']),
         ...factors.map((f) => {
@@ -232,18 +262,18 @@ export async function exportPptx(state: AppState): Promise<{ ok: boolean; error?
           ];
         }),
         [
-          { text: 'Weighted score', options: { bold: true, fill: { color: LIGHT } } },
-          { text: '', options: { fill: { color: LIGHT } } },
-          { text: '', options: { fill: { color: LIGHT } } },
-          { text: String(top.composite), options: { align: 'center' as const, bold: true, fill: { color: LIGHT } } },
+          { text: 'Weighted score', options: { bold: true, fill: { color: CREAM } } },
+          { text: '', options: { fill: { color: CREAM } } },
+          { text: '', options: { fill: { color: CREAM } } },
+          { text: String(top.composite), options: { align: 'center' as const, bold: true, fill: { color: CREAM } } },
         ],
       ];
-      s.addTable(rows, tableOpts(0.5, 1.15, 8.5, [3.6, 1.5, 1.5, 1.9]));
+      s.addTable(rows, tableOpts(0.5, CY, 8.5, [3.6, 1.5, 1.5, 1.9]));
     }
 
     // ---- Employee commute drive times ----
     {
-      const s = section('Employee commute drive times', cityLabel);
+      const s = chrome('Employee commute drive times', cityLabel);
       const staff = (city.staff ?? []).filter((st) => st.lat != null && st.lng != null);
       const dtSites = city.sites.filter((st) => st.lat != null && st.lng != null);
       const centers = city.centers.filter(finite);
@@ -252,8 +282,8 @@ export async function exportPptx(state: AppState): Promise<{ ok: boolean; error?
       if (!staff.length) note = 'No staff plotted on the map — add staff and use “Plot on map”.';
       else if (!dtSites.length) note = 'No candidate sites with locations yet.';
       if (note) {
-        s.addText('Minutes from each staff location to the candidate offices and nearest key locations.', { x: 0.6, y: 1.1, w: 12, h: 0.3, fontSize: 10, italic: true, color: MUTED });
-        s.addText(note, { x: 0.6, y: 1.6, w: 12, h: 0.6, fontSize: 14, color: MUTED });
+        s.addText('Minutes from each staff location to the candidate offices and nearest key locations.', { x: 0.5, y: CY, w: 12, h: 0.3, fontFace: FONT, fontSize: 10, italic: true, color: MUTED });
+        s.addText(note, { x: 0.5, y: CY + 0.5, w: 12, h: 0.6, fontFace: FONT, fontSize: 14, color: MUTED });
       } else {
         try {
           const shown = [...dtSites]
@@ -288,7 +318,7 @@ export async function exportPptx(state: AppState): Promise<{ ok: boolean; error?
             return w ? Math.round(ws / w) : null;
           });
           const siteNames = shown.map((s2) => s2.short || s2.name);
-          s.addText('Minutes from each staff location (weekday 8 AM, traffic-aware).', { x: 0.5, y: 1.0, w: 12, h: 0.3, fontSize: 10, italic: true, color: MUTED });
+          s.addText('Minutes from each staff location (weekday 8 AM, traffic-aware).', { x: 0.5, y: CY - 0.02, w: 12, h: 0.3, fontFace: FONT, fontSize: 10, italic: true, color: MUTED });
           const heads = ['Staff location', 'Staff', ...siteNames, 'Nrst ctr', 'Nrst airport'];
           const b0 = [3.0, 0.8];
           const tail = [1.0, 1.1];
@@ -304,30 +334,30 @@ export async function exportPptx(state: AppState): Promise<{ ok: boolean; error?
               { text: mins(r.air), options: { align: 'center' as const } },
             ]),
             [
-              { text: 'Weighted avg commute', options: { bold: true, fill: { color: LIGHT } } },
-              { text: '', options: { fill: { color: LIGHT } } },
-              ...wavg.map((m) => ({ text: mins(m), options: { align: 'center' as const, bold: true, fill: { color: LIGHT } } })),
-              { text: '', options: { fill: { color: LIGHT } } },
-              { text: '', options: { fill: { color: LIGHT } } },
+              { text: 'Weighted avg commute', options: { bold: true, fill: { color: CREAM } } },
+              { text: '', options: { fill: { color: CREAM } } },
+              ...wavg.map((m) => ({ text: mins(m), options: { align: 'center' as const, bold: true, fill: { color: CREAM } } })),
+              { text: '', options: { fill: { color: CREAM } } },
+              { text: '', options: { fill: { color: CREAM } } },
             ],
           ];
-          s.addTable(rows, tableOpts(0.5, 1.35, 12.33, colW, 9.5));
+          s.addTable(rows, tableOpts(0.5, CY + 0.3, 12.33, colW, 9.5));
         } catch (e) {
-          s.addText(`Drive times unavailable: ${e instanceof Error ? e.message : 'lookup failed'}.`, { x: 0.6, y: 1.6, w: 12, h: 0.6, fontSize: 13, color: MUTED });
+          s.addText(`Drive times unavailable: ${e instanceof Error ? e.message : 'lookup failed'}.`, { x: 0.5, y: CY + 0.3, w: 12, h: 0.6, fontFace: FONT, fontSize: 13, color: MUTED });
         }
       }
     }
 
     // ---- Reference points ----
     {
-      const s = section('Reference points', cityLabel);
-      const left = 0.6;
-      let y = 1.25;
+      const s = chrome('Reference points', cityLabel);
+      const left = 0.5;
+      let y = CY;
       const listBlock = (title: string, items: string[]) => {
-        s.addText(title, { x: left, y, w: 8, h: 0.35, fontSize: 13, bold: true, color: SLATE });
+        s.addText(title.toUpperCase(), { x: left, y, w: 8, h: 0.35, fontFace: FONT, bold: true, fontSize: 10, color: CRIMSON, charSpacing: 1.5 });
         y += 0.4;
-        s.addText(items.length ? items.join('\n') : 'None', { x: left + 0.2, y, w: 11.8, h: 0.4 + items.length * 0.28, fontSize: 12, color: INK, lineSpacingMultiple: 1.25 });
-        y += Math.max(1, items.length) * 0.3 + 0.3;
+        s.addText(items.length ? items.join('\n') : 'None', { x: left + 0.2, y, w: 11.8, h: 0.4 + items.length * 0.28, fontFace: FONT, fontSize: 12, color: INK, lineSpacingMultiple: 1.25 });
+        y += Math.max(1, items.length) * 0.3 + 0.35;
       };
       listBlock('Transplant centers (ranked)', city.centers.map((c, i) => `${i + 1}.  ${c.short || 'Center'}${c.address ? ` — ${c.address}` : ''}`));
       listBlock('Airports (ranked)', city.airports.map((a, i) => `${i + 1}.  ${(a.code || a.icao || '?').toUpperCase()}${a.name ? ` — ${a.name}` : ''}`));
@@ -340,9 +370,9 @@ export async function exportPptx(state: AppState): Promise<{ ok: boolean; error?
     // ---- Staff locations ----
     {
       const staffAll = city.staff ?? [];
-      const s = section('Staff locations', cityLabel);
+      const s = chrome('Staff locations', cityLabel);
       if (!staffAll.length) {
-        s.addText('No staff locations recorded.', { x: 0.6, y: 1.4, w: 12, h: 0.5, fontSize: 14, color: MUTED });
+        s.addText('No staff locations recorded.', { x: 0.5, y: CY, w: 12, h: 0.5, fontFace: FONT, fontSize: 14, color: MUTED });
       } else {
         const total = staffAll.reduce((a, x2) => a + (parseInt(x2.employees, 10) || 0), 0);
         const rows = [
@@ -354,13 +384,13 @@ export async function exportPptx(state: AppState): Promise<{ ok: boolean; error?
             { text: x2.employees || '0', options: { align: 'center' as const } },
           ]),
           [
-            { text: 'Total', options: { bold: true, fill: { color: LIGHT } } },
-            { text: '', options: { fill: { color: LIGHT } } },
-            { text: '', options: { fill: { color: LIGHT } } },
-            { text: String(total), options: { align: 'center' as const, bold: true, fill: { color: LIGHT } } },
+            { text: 'Total', options: { bold: true, fill: { color: CREAM } } },
+            { text: '', options: { fill: { color: CREAM } } },
+            { text: '', options: { fill: { color: CREAM } } },
+            { text: String(total), options: { align: 'center' as const, bold: true, fill: { color: CREAM } } },
           ],
         ];
-        s.addTable(rows, tableOpts(0.5, 1.15, 8, [3.2, 1.4, 1.6, 1.8]));
+        s.addTable(rows, tableOpts(0.5, CY, 8, [3.2, 1.4, 1.6, 1.8]));
       }
     }
   }

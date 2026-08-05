@@ -117,7 +117,10 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   data** clears everything back to empty.
 - **Persistence & export.** The full state autosaves to `localStorage`.
   **Export PDF** downloads a one-page report of the current city (jsPDF).
-  **Export PPT** builds a comprehensive PowerPoint deck (PptxGenJS) covering
+  **Export PPT** builds a comprehensive PowerPoint deck (PptxGenJS), styled to
+  the **TransMedics brand standards** (crimson + peach accent, charcoal ink,
+  cream surfaces, Mulish type, logo header, crimson section rule, confidentiality
+  footer, monogram-watermark cover / divider slides), covering
   **every city**, with per-city slides: recommendation, factor weighting, a
   rendered **location map** (Google Maps Static via `/api/staticmap`, all markers
   + legend), ranked candidates, factor breakdown, **employee-commute drive times**
