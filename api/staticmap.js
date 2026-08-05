@@ -18,6 +18,38 @@ const MARKERS = [
 const pt = (p) => `${Number(p.lat).toFixed(5)},${Number(p.lng).toFixed(5)}`;
 const finite = (p) => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng));
 
+/**
+ * Compute a { lat, lng, zoom } that frames the given points within a mapW×mapH
+ * viewport (Web Mercator), with padding. Returns null for no points.
+ */
+function computeView(points, mapW, mapH) {
+  if (!points.length) return null;
+  let n = -90, s = 90, e = -180, w = 180;
+  for (const p of points) {
+    n = Math.max(n, p.lat);
+    s = Math.min(s, p.lat);
+    e = Math.max(e, p.lng);
+    w = Math.min(w, p.lng);
+  }
+  const center = { lat: (n + s) / 2, lng: (e + w) / 2 };
+  const latRad = (lat) => {
+    const sn = Math.sin((lat * Math.PI) / 180);
+    const r = Math.log((1 + sn) / (1 - sn)) / 2;
+    return Math.max(Math.min(r, Math.PI), -Math.PI) / 2;
+  };
+  const zoomFor = (px, frac) => Math.log(px / 256 / frac) / Math.LN2;
+  const EPS = 1e-6;
+  const latFrac = (latRad(n) - latRad(s)) / Math.PI;
+  let lngDiff = e - w;
+  if (lngDiff < 0) lngDiff += 360;
+  const lngFrac = lngDiff / 360;
+  const latZoom = latFrac > EPS ? zoomFor(mapH, latFrac) : 15;
+  const lngZoom = lngFrac > EPS ? zoomFor(mapW, lngFrac) : 15;
+  // −1 for margin; clamp to a sensible metro range (never the whole country).
+  const zoom = Math.max(4, Math.min(15, Math.floor(Math.min(latZoom, lngZoom)) - 1));
+  return { lat: Number(center.lat.toFixed(5)), lng: Number(center.lng.toFixed(5)), zoom };
+}
+
 export default async function handler(req, res) {
   const key = process.env.GOOGLE_MAPS_API_KEY;
   if (!key) return res.status(500).json({ error: 'Missing GOOGLE_MAPS_API_KEY.' });
@@ -52,12 +84,15 @@ export default async function handler(req, res) {
   body = body || {};
 
   const size = /^\d{2,4}x\d{2,4}$/.test(String(body.size || '')) ? String(body.size) : '640x400';
+  const [mapW, mapH] = size.split('x').map(Number);
   const params = [`size=${size}`, 'scale=2', 'maptype=roadmap'];
   let count = 0;
 
+  const groups = {};
   for (const [k, msize, color] of MARKERS) {
     const raw = k === 'office' || k === 'aviation' ? (finite(body[k]) ? [body[k]] : []) : body[k];
     const list = (Array.isArray(raw) ? raw : []).filter(finite).slice(0, 30);
+    groups[k] = list;
     if (!list.length) continue;
     count += list.length;
     const style = `size:${msize}|color:0x${color}`;
@@ -65,6 +100,13 @@ export default async function handler(req, res) {
   }
 
   if (!count) return res.status(400).json({ error: 'No map markers provided.' });
+
+  // Frame on the candidate sites + local reference points (NOT staff, who may be
+  // spread nationwide and would zoom the map out to the whole country).
+  const focus = [...groups.sites, ...groups.centers, ...groups.airports, ...groups.office, ...groups.aviation]
+    .map((p) => ({ lat: Number(p.lat), lng: Number(p.lng) }));
+  const view = computeView(focus, mapW || 640, mapH || 400);
+  if (view) params.push(`center=${view.lat},${view.lng}`, `zoom=${view.zoom}`);
 
   const url = `https://maps.googleapis.com/maps/api/staticmap?${params.join('&')}&key=${key}`;
   try {
