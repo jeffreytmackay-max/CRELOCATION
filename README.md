@@ -115,11 +115,15 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   (lat/long optional for exact placement). An empty state prompts for the first
   city; each city tab has a **×** to delete it (and its locations); **Reset
   data** clears everything back to empty.
-- **Persistence.** The full state autosaves to `localStorage`. **Export PDF**
-  downloads a shareable report of the current city (weights, ranked candidates
-  with per-factor scores, reference points, staff total) — rendered client-side
-  with jsPDF (code-split, loads only on export). Import restores from a JSON
-  backup file.
+- **Persistence & export.** The full state autosaves to `localStorage`.
+  **Export PDF** downloads a one-page report of the current city (jsPDF).
+  **Export PPT** builds a comprehensive PowerPoint deck (PptxGenJS) — title,
+  recommendation, factor weighting, ranked candidates, factor breakdown,
+  **employee-commute drive times** (computed live via the Distance Matrix API:
+  each plotted staff location → the top candidate sites plus nearest transplant
+  center / airport, with a headcount-weighted average), reference points, and
+  staff. Both exporters are code-split (load only when used). Import restores
+  from a JSON backup file.
 - **Responsive / iOS-ready.** The desktop three-column layout collapses on phones
   (≤820px) into a **Weights / Map / Details** tab switch, with a full-screen
   Reference-points sheet. Handles the iOS Safari `100dvh` toolbar, notch/home
@@ -193,6 +197,7 @@ src/
     crime.ts            # client for /api/crime (Zyla crime-by-ZIP)
     staffImport.ts      # parse an uploaded .xlsx/.csv of staff (SheetJS, lazy)
     pdfExport.ts        # render the city analysis to a PDF (jsPDF, lazy)
+    pptxExport.ts       # comprehensive PowerPoint deck (PptxGenJS, lazy)
   components/
     Header.tsx          # brand + data actions
     CityNav.tsx         # city tabs + reference-points toggle

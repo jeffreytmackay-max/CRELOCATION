@@ -17,6 +17,7 @@ import { fetchCrimeScores } from './lib/crime';
 import type { DiscoveredPlace } from './lib/places';
 import { freshState, loadState, parseImport, saveState } from './lib/storage';
 import { exportPdf } from './lib/pdfExport';
+import { exportPptx } from './lib/pptxExport';
 import type { AddKind, AppState, City, FactorKey, ScoredSite } from './types';
 
 let idCounter = 0;
@@ -172,6 +173,8 @@ export interface Store {
   ) => Promise<void>;
 
   exportData: () => void;
+  /** Build & download the comprehensive PowerPoint deck for the current city. */
+  exportDeck: () => Promise<{ ok: boolean; error?: string }>;
   importData: (file: File) => Promise<void>;
   resetData: () => void;
 }
@@ -993,6 +996,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!ok) window.alert('Add a city with candidate sites before exporting.');
     }).catch(() => window.alert('Could not generate the PDF report.'));
   }, [state]);
+  const exportDeck = useCallback(() => exportPptx(state), [state]);
   const importData = useCallback(async (file: File) => {
     const text = await file.text();
     const data = parseImport(text);
@@ -1067,6 +1071,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     closeCityModal,
     addCity,
     exportData,
+    exportDeck,
     importData,
     resetData,
   };

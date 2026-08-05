@@ -1,10 +1,23 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useApp } from '../store';
 
 /** Top bar: brand lockup + data actions. */
 export function Header() {
-  const { exportData, importData, resetData, resetWeights, isMobile } = useApp();
+  const { exportData, exportDeck, importData, resetData, resetWeights, isMobile } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
+  const [deckBusy, setDeckBusy] = useState(false);
+
+  async function onExportDeck() {
+    setDeckBusy(true);
+    try {
+      const r = await exportDeck();
+      if (!r.ok) window.alert(r.error || 'Could not generate the deck.');
+    } catch {
+      window.alert('Could not generate the PowerPoint deck.');
+    } finally {
+      setDeckBusy(false);
+    }
+  }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -89,6 +102,15 @@ export function Header() {
       </span>
       <button className="sx-btn sx-btn-sm sx-btn-secondary" onClick={exportData}>
         Export PDF
+      </button>
+      <button
+        className="sx-btn sx-btn-sm sx-btn-secondary"
+        onClick={onExportDeck}
+        disabled={deckBusy}
+        style={{ opacity: deckBusy ? 0.7 : 1 }}
+        title="Comprehensive PowerPoint deck (includes employee-commute drive times)"
+      >
+        {deckBusy ? 'Building…' : 'Export PPT'}
       </button>
       <button
         className="sx-btn sx-btn-sm sx-btn-secondary"
