@@ -43,10 +43,11 @@ function computeView(points, mapW, mapH) {
   let lngDiff = e - w;
   if (lngDiff < 0) lngDiff += 360;
   const lngFrac = lngDiff / 360;
-  const latZoom = latFrac > EPS ? zoomFor(mapH, latFrac) : 15;
-  const lngZoom = lngFrac > EPS ? zoomFor(mapW, lngFrac) : 15;
-  // −1 for margin; clamp to a sensible metro range (never the whole country).
-  const zoom = Math.max(4, Math.min(15, Math.floor(Math.min(latZoom, lngZoom)) - 1));
+  const latZoom = latFrac > EPS ? zoomFor(mapH, latFrac) : 16;
+  const lngZoom = lngFrac > EPS ? zoomFor(mapW, lngFrac) : 16;
+  // Floor already zooms out enough to fit the bounds (with inherent margin);
+  // clamp wide enough for cross-country spreads, tight enough for one point.
+  const zoom = Math.max(3, Math.min(16, Math.floor(Math.min(latZoom, lngZoom))));
   return { lat: Number(center.lat.toFixed(5)), lng: Number(center.lng.toFixed(5)), zoom };
 }
 
@@ -101,10 +102,11 @@ export default async function handler(req, res) {
 
   if (!count) return res.status(400).json({ error: 'No map markers provided.' });
 
-  // Frame on the candidate sites + local reference points (NOT staff, who may be
-  // spread nationwide and would zoom the map out to the whole country).
-  const focus = [...groups.sites, ...groups.centers, ...groups.airports, ...groups.office, ...groups.aviation]
-    .map((p) => ({ lat: Number(p.lat), lng: Number(p.lng) }));
+  // Frame tightly on ALL markers (including staff) so every point is shown.
+  const focus = [
+    ...groups.sites, ...groups.centers, ...groups.airports,
+    ...groups.office, ...groups.aviation, ...groups.staff,
+  ].map((p) => ({ lat: Number(p.lat), lng: Number(p.lng) }));
   const view = computeView(focus, mapW || 640, mapH || 400);
   if (view) params.push(`center=${view.lat},${view.lng}`, `zoom=${view.zoom}`);
 
