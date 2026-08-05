@@ -117,13 +117,14 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   data** clears everything back to empty.
 - **Persistence & export.** The full state autosaves to `localStorage`.
   **Export PDF** downloads a one-page report of the current city (jsPDF).
-  **Export PPT** builds a comprehensive PowerPoint deck (PptxGenJS) — title,
-  recommendation, factor weighting, ranked candidates, factor breakdown,
-  **employee-commute drive times** (computed live via the Distance Matrix API:
-  each plotted staff location → the top candidate sites plus nearest transplant
-  center / airport, with a headcount-weighted average), reference points, and
-  staff. Both exporters are code-split (load only when used). Import restores
-  from a JSON backup file.
+  **Export PPT** builds a comprehensive PowerPoint deck (PptxGenJS) covering
+  **every city**, with per-city slides: recommendation, factor weighting, a
+  rendered **location map** (Google Maps Static via `/api/staticmap`, all markers
+  + legend), ranked candidates, factor breakdown, **employee-commute drive times**
+  (computed live via the Distance Matrix API: each plotted staff location → the
+  top candidate sites plus nearest transplant center / airport, with a
+  headcount-weighted average), reference points, and staff. Both exporters are
+  code-split (load only when used). Import restores from a JSON backup file.
 - **Responsive / iOS-ready.** The desktop three-column layout collapses on phones
   (≤820px) into a **Weights / Map / Details** tab switch, with a full-screen
   Reference-points sheet. Handles the iOS Safari `100dvh` toolbar, notch/home
@@ -153,7 +154,7 @@ npm run preview  # preview the production build
 
 | Variable              | Where            | Purpose                                                        |
 | --------------------- | ---------------- | -------------------------------------------------------------- |
-| `GOOGLE_MAPS_API_KEY` | server-side only | Drive-time auto-fill (`/api/drivetimes`, Distance Matrix API), Find-nearby discovery (`/api/places`, Places API), search-to-add + map search (`/api/geocode`, Geocoding API), and the detail-panel location image (`/api/streetview`, Street View Static API + Maps Static API). Never exposed to the browser. |
+| `GOOGLE_MAPS_API_KEY` | server-side only | Drive-time auto-fill (`/api/drivetimes`, Distance Matrix API), Find-nearby discovery (`/api/places`, Places API), search-to-add + map search (`/api/geocode`, Geocoding API), the detail-panel location image (`/api/streetview`, Street View Static + Maps Static API), and the PPT deck overview map (`/api/staticmap`, Maps Static API). Never exposed to the browser. |
 | `AIRPORTDB_API_TOKEN`  | server-side only | Airport lookup by ICAO (`/api/airport`, AirportDB.io) — official name, coordinates, IATA code, runways. Optional; free token from [airportdb.io](https://airportdb.io/). |
 | `Crime_DATA`           | server-side only | Crime & safety auto-score (`/api/crime`, Zyla Labs "Crime Data by Zipcode"). Optional; without it the crime auto-score is skipped. ZIP reverse-geocoding reuses `GOOGLE_MAPS_API_KEY`. |
 
@@ -177,6 +178,7 @@ api/
   geocode.js            # Vercel function: Google Geocoding proxy (search-to-add)
   streetview.js         # Vercel function: Street View / Static Map location image
   airport.js            # Vercel function: AirportDB.io lookup by ICAO code
+  staticmap.js          # Vercel function: static overview map for the PPT deck
   nearby-airports.js    # Vercel function: nearby airports from OurAirports data
   _airports.json        # bundled OurAirports subset (large + medium airports)
   crime.js              # Vercel function: Zyla crime-by-ZIP → safety score
