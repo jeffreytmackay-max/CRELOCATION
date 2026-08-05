@@ -3,7 +3,7 @@
 // Proxies Google Places so the API key stays server-side. Finds transplant
 // centers / hospitals or airports around a metro center.
 //
-// POST body: { kind: "transplant" | "airport", lat, lng, radius? }  // radius m
+// POST body: { kind: "transplant" | "airport" | "commercial", lat, lng, radius? }  // radius m
 // Response: { places: [{ name, address, lat, lng, code }], kind }
 //
 // Requires the "Places API" enabled on GOOGLE_MAPS_API_KEY.
@@ -41,9 +41,13 @@ export default async function handler(req, res) {
   const lng = Number(body && body.lng);
   const radius = Math.min(Number(body && body.radius) || DEFAULT_RADIUS, MAX_RADIUS);
 
-  if ((kind !== 'transplant' && kind !== 'airport') || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+  if (
+    (kind !== 'transplant' && kind !== 'airport' && kind !== 'commercial') ||
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng)
+  ) {
     return res.status(400).json({
-      error: 'Provide kind ("transplant" | "airport") and numeric lat / lng.',
+      error: 'Provide kind ("transplant" | "airport" | "commercial") and numeric lat / lng.',
     });
   }
 
@@ -57,9 +61,11 @@ export default async function handler(req, res) {
     });
     url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?${p.toString()}`;
   } else {
-    // Text search is better for a themed query like "transplant center".
+    // Text search suits themed queries (transplant centers, office space).
+    const query =
+      kind === 'commercial' ? 'office space for lease commercial real estate' : 'transplant center hospital';
     const p = new URLSearchParams({
-      query: 'transplant center hospital',
+      query,
       location: `${lat},${lng}`,
       radius: String(radius),
       key,

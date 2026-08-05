@@ -34,9 +34,12 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   around a real location, with a one-click **Add as candidate site**.
 - **Suggest ideal office location.** Computes the point that best balances the
   weighted factors — nearest transplant center, nearest airport, and headcount-
-  weighted staff commute — across your reference points and plotted staff, and
-  marks it with a gold ★. It's a fast straight-line estimate (weighted by your
-  sliders); add it as a candidate and Auto-score it for real traffic-aware times.
+  weighted staff commute — across your reference points and plotted staff, then
+  **snaps it to the nearest real office space** and lists nearby commercial /
+  office locations (Google Places, `kind: "commercial"`) to add as candidate
+  sites. Marks the result with a gold ★. (There's no free feed of *available*
+  CRE listings — Places is a proxy for where commercial real estate exists.) It's
+  a fast straight-line estimate; add a candidate and Auto-score it for real times.
 - **Greater-metro exploration.** Candidate pins are free-form — drop them
   anywhere in the metro, not just the core city. Each candidate carries an
   editable **city / area** label (e.g. "The Woodlands, TX") shown in the ranking

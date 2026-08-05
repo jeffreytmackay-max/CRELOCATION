@@ -14,7 +14,7 @@ import { minutesToScore, normalize, scoreCity } from './lib/scoring';
 import { geocode } from './lib/geocode';
 import { departureTimestamp, matrix } from './lib/drivetimes';
 import { fetchCrimeScores } from './lib/crime';
-import type { DiscoveredPlace } from './lib/places';
+import { findNearby, type DiscoveredPlace } from './lib/places';
 import { freshState, loadState, parseImport, saveState } from './lib/storage';
 import { exportPdf } from './lib/pdfExport';
 import { exportPptx } from './lib/pptxExport';
@@ -36,11 +36,22 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
 }
 
 /** A weighted-optimal office suggestion (from proximity, before real drive times). */
+export interface CommercialOption {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+}
 export interface Suggestion {
   lat: number;
   lng: number;
   score: number;
   note: string;
+  /** Nearest commercial/office location the point was snapped to, if any. */
+  place?: string;
+  address?: string;
+  /** Other nearby commercial/office locations to consider as candidate sites. */
+  options?: CommercialOption[];
 }
 export interface StaffImportRow {
   city: string;
@@ -96,7 +107,7 @@ export interface Store {
   /** A proximity-optimal office location suggestion, or null. */
   suggestion: Suggestion | null;
   /** Compute the weighted-best office location from reference points + staff. */
-  suggestOffice: () => { ok: boolean; error?: string };
+  suggestOffice: () => Promise<{ ok: boolean; error?: string }>;
   /** Dismiss the current suggestion marker. */
   clearSuggestion: () => void;
 
@@ -322,7 +333,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const clearSuggestion = useCallback(() => setSuggestion(null), []);
 
-  const suggestOffice = useCallback((): { ok: boolean; error?: string } => {
+  const suggestOffice = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
     if (!city) return { ok: false, error: 'No city selected.' };
     const centerList = city.centers.filter((c) => c.lat != null && c.lng != null);
     const airportList = city.airports.filter((a) => a.lat != null && a.lng != null);
@@ -428,8 +439,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const note = [useHosp && 'transplant centers', useAir && 'airports', useCommute && 'staff commute']
       .filter(Boolean)
       .join(', ');
-    setSuggestion({ lat: best.lat, lng: best.lng, score: Math.round(bestS), note });
-    flyTo(best.lat, best.lng, 11);
+
+    // Snap the geographic optimum to the nearest actual commercial/office
+    // location (Google Places), and collect a few options to consider. Falls
+    // back to the raw point if Places is unavailable or finds nothing.
+    let point = { lat: best.lat, lng: best.lng, score: Math.round(bestS) };
+    let place: string | undefined;
+    let address: string | undefined;
+    let options: { name: string; address: string; lat: number; lng: number }[] = [];
+    try {
+      const found = await findNearby('commercial', best.lat, best.lng, 15000);
+      const valid = found.filter((f) => Number.isFinite(f.lat) && Number.isFinite(f.lng));
+      if (valid.length) {
+        const nearest = valid.reduce((a, b) =>
+          haversineKm(a, best) <= haversineKm(b, best) ? a : b,
+        );
+        point = { lat: nearest.lat, lng: nearest.lng, score: Math.round(scoreAt(nearest.lat, nearest.lng)) };
+        place = nearest.name;
+        address = nearest.address;
+        options = valid.slice(0, 6).map((f) => ({ name: f.name, address: f.address, lat: f.lat, lng: f.lng }));
+      }
+    } catch {
+      /* Places unavailable — keep the raw geographic optimum. */
+    }
+
+    setSuggestion({ ...point, note, place, address, options });
+    flyTo(point.lat, point.lng, 12);
     if (isMobile) setMobileView('map');
     return { ok: true };
   }, [city, state.weights, flyTo, isMobile]);

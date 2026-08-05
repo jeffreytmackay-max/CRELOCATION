@@ -536,15 +536,23 @@ function AutoScore() {
   );
 }
 
-/** Suggest a weighted-optimal office location from reference points + staff. */
+/** Suggest a weighted-optimal office location, snapped to nearby office space. */
 function SuggestLocation() {
   const { suggestOffice, suggestion, clearSuggestion, addSiteAt } = useApp();
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function run() {
+  async function run() {
+    setBusy(true);
     setError(null);
-    const r = suggestOffice();
-    if (!r.ok) setError(r.error || 'Could not compute a suggestion.');
+    try {
+      const r = await suggestOffice();
+      if (!r.ok) setError(r.error || 'Could not compute a suggestion.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not compute a suggestion.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -552,10 +560,11 @@ function SuggestLocation() {
       <button
         className="sx-btn sx-btn-sm sx-btn-secondary"
         onClick={run}
-        style={{ width: '100%', justifyContent: 'center' }}
-        title="Find the point that best balances the weighted factors across your reference points and staff"
+        disabled={busy}
+        style={{ width: '100%', justifyContent: 'center', opacity: busy ? 0.7 : 1 }}
+        title="Find the best-balanced point across your reference points and staff, snapped to nearby office space"
       >
-        🎯 Suggest ideal office location
+        {busy ? 'Finding…' : '🎯 Suggest ideal office location'}
       </button>
       <div style={{ marginTop: 6, fontSize: 10.5, lineHeight: 1.4 }}>
         {error ? (
@@ -563,15 +572,24 @@ function SuggestLocation() {
         ) : suggestion ? (
           <div>
             <div style={{ color: 'var(--tmdx-green)' }}>
-              ⭐ Best spot marked on the map — ≈{suggestion.score} weighted access, optimized for{' '}
-              {suggestion.note}.
+              {suggestion.place ? (
+                <>
+                  ⭐ Nearest office space to the ideal point: <strong>{suggestion.place}</strong> —
+                  ≈{suggestion.score} weighted access (optimized for {suggestion.note}).
+                </>
+              ) : (
+                <>
+                  ⭐ Best spot marked on the map — ≈{suggestion.score} weighted access, optimized for{' '}
+                  {suggestion.note}. (No commercial listings found nearby — showing the raw point.)
+                </>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 7 }}>
               <button
                 className="sx-btn sx-btn-sm sx-btn-primary"
                 style={{ flex: 1, justifyContent: 'center' }}
                 onClick={() => {
-                  addSiteAt('Suggested office', suggestion.lat, suggestion.lng);
+                  addSiteAt(suggestion.place || 'Suggested office', suggestion.lat, suggestion.lng);
                   clearSuggestion();
                 }}
               >
@@ -581,11 +599,47 @@ function SuggestLocation() {
                 Dismiss
               </button>
             </div>
+            {suggestion.options && suggestion.options.length > 1 && (
+              <div style={{ marginTop: 9 }}>
+                <div style={{ color: 'var(--text-muted)', marginBottom: 4 }}>
+                  Nearby commercial / office locations:
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {suggestion.options.map((o, i) => (
+                    <div
+                      key={i}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}
+                    >
+                      <span
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          color: 'var(--text-body)',
+                        }}
+                        title={`${o.name} — ${o.address}`}
+                      >
+                        {o.name}
+                      </span>
+                      <button
+                        className="sx-btn sx-btn-sm sx-btn-secondary"
+                        style={{ flex: 'none', padding: '2px 8px' }}
+                        onClick={() => addSiteAt(o.name, o.lat, o.lng)}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <span style={{ color: 'var(--text-muted)' }}>
-            Estimates the best location by straight-line proximity, weighted by your sliders. Plot
-            staff on the map to include commute. Auto-score the added site for real drive times.
+            Finds the best-balanced point (weighted by your sliders), then snaps it to the nearest
+            real office space and lists nearby commercial options. Plot staff to include commute.
           </span>
         )}
       </div>

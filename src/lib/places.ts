@@ -1,6 +1,6 @@
 /** Client for the /api/places serverless proxy (Google Places discovery). */
 
-export type PlaceKind = 'transplant' | 'airport';
+export type PlaceKind = 'transplant' | 'airport' | 'commercial';
 
 export interface DiscoveredPlace {
   name: string;
