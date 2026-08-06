@@ -30,8 +30,9 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   Click a pin or a ranking row to select a site. **Fit all sites** zooms/pans to
   frame every candidate across the greater metro at once.
 - **On-map location search.** A search box on the map geocodes any place or
-  address (Google Geocoding API), flies there, and drops a blue pin — for looking
-  around a real location, with a one-click **Add as candidate site**.
+  address (Google Geocoding API), flies there, and drops a blue pin. The found
+  location can be added in one click as a **candidate site**, a **transplant
+  center**, or an **airport**.
 - **Suggest ideal office location.** Computes the point that best balances the
   weighted factors — nearest transplant center, nearest airport, and headcount-
   weighted staff commute — across your reference points and plotted staff, then

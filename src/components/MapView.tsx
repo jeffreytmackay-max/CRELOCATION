@@ -374,7 +374,7 @@ function MapSearch({
   found: GeocodeResult | null;
   setFound: (r: GeocodeResult | null) => void;
 }) {
-  const { flyTo, addSiteAt } = useApp();
+  const { flyTo, addSiteAt, addDiscoveredRefs } = useApp();
   const [q, setQ] = useState('');
   const [results, setResults] = useState<GeocodeResult[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -411,6 +411,13 @@ function MapSearch({
     setResults(null);
     setError(null);
     setQ('');
+  }
+
+  /** Add the found location as a transplant center or airport reference point. */
+  function addAsRef(kind: 'centers' | 'airports') {
+    if (!found) return;
+    const short = found.name.split(',')[0].trim() || found.name;
+    addDiscoveredRefs(kind, [{ name: short, address: found.name, lat: found.lat, lng: found.lng, code: '' }]);
   }
 
   const panel: React.CSSProperties = {
@@ -545,7 +552,10 @@ function MapSearch({
       {found && !results && (
         <div style={{ ...panel, padding: 10 }}>
           <div style={{ fontSize: 12.5, color: 'var(--text-strong)', marginBottom: 8 }}>{found.name}</div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>
+            Add this location as
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
             <button
               className="sx-btn sx-btn-sm sx-btn-primary"
               onClick={() => {
@@ -555,12 +565,38 @@ function MapSearch({
               style={{ flex: 1, justifyContent: 'center' }}
               title="Add this location as a candidate site"
             >
-              + Add as candidate site
+              Candidate site
             </button>
-            <button className="sx-btn sx-btn-sm sx-btn-secondary" onClick={clear} style={{ flex: 'none' }}>
-              Clear
+            <button
+              className="sx-btn sx-btn-sm sx-btn-secondary"
+              onClick={() => {
+                addAsRef('centers');
+                clear();
+              }}
+              style={{ flex: 1, justifyContent: 'center' }}
+              title="Add this location as a transplant center"
+            >
+              Transplant ctr
+            </button>
+            <button
+              className="sx-btn sx-btn-sm sx-btn-secondary"
+              onClick={() => {
+                addAsRef('airports');
+                clear();
+              }}
+              style={{ flex: 'none', justifyContent: 'center' }}
+              title="Add this location as an airport"
+            >
+              Airport
             </button>
           </div>
+          <button
+            className="sx-btn sx-btn-sm sx-btn-secondary"
+            onClick={clear}
+            style={{ width: '100%', justifyContent: 'center', marginTop: 6 }}
+          >
+            Clear
+          </button>
         </div>
       )}
     </div>
