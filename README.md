@@ -119,7 +119,12 @@ layer with [react-leaflet](https://react-leaflet.js.org/) for the map.
   (lat/long optional for exact placement). An empty state prompts for the first
   city; each city tab has a **×** to delete it (and its locations); **Reset
   data** clears everything back to empty.
-- **Persistence & export.** The full state autosaves to `localStorage`.
+- **Persistence & export.** The full state autosaves to `localStorage`, and the
+  app calls `navigator.storage.persist()` on load so browsers don't evict it
+  under storage pressure or time-based cleanup. **Backup** downloads the whole
+  dataset as `site-selection-data.json` and **Restore** loads it back — the
+  durable, portable copy (localStorage is per-browser/per-device and can still be
+  cleared by the user or a different browser).
   **Export PDF** downloads a one-page report of the current city (jsPDF).
   **Export PPT** builds a comprehensive PowerPoint deck (PptxGenJS), styled to
   the **TransMedics brand standards** (crimson + peach accent, charcoal ink,

@@ -3,7 +3,7 @@ import { useApp } from '../store';
 
 /** Top bar: brand lockup + data actions. */
 export function Header() {
-  const { exportData, exportDeck, importData, resetData, resetWeights, isMobile } = useApp();
+  const { exportData, exportDeck, backupData, importData, resetData, resetWeights, isMobile } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
   const [deckBusy, setDeckBusy] = useState(false);
 
@@ -114,9 +114,17 @@ export function Header() {
       </button>
       <button
         className="sx-btn sx-btn-sm sx-btn-secondary"
-        onClick={() => fileRef.current?.click()}
+        onClick={backupData}
+        title="Download all your data as a JSON backup file (restore it later, or on another device)"
       >
-        Import
+        Backup
+      </button>
+      <button
+        className="sx-btn sx-btn-sm sx-btn-secondary"
+        onClick={() => fileRef.current?.click()}
+        title="Restore data from a JSON backup file"
+      >
+        Restore
       </button>
       <button
         className="sx-btn sx-btn-sm sx-btn-ghost"

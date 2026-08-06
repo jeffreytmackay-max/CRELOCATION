@@ -15,7 +15,7 @@ import { geocode } from './lib/geocode';
 import { departureTimestamp, matrix } from './lib/drivetimes';
 import { fetchCrimeScores } from './lib/crime';
 import { findNearby, type DiscoveredPlace } from './lib/places';
-import { freshState, loadState, parseImport, saveState } from './lib/storage';
+import { exportState, freshState, loadState, parseImport, requestPersistentStorage, saveState } from './lib/storage';
 import { exportPdf } from './lib/pdfExport';
 import { exportPptx } from './lib/pptxExport';
 import type { AddKind, AppState, City, FactorKey, ScoredSite } from './types';
@@ -186,6 +186,8 @@ export interface Store {
   exportData: () => void;
   /** Build & download the comprehensive PowerPoint deck for the current city. */
   exportDeck: () => Promise<{ ok: boolean; error?: string }>;
+  /** Download the full data as a JSON backup file (restore with importData). */
+  backupData: () => void;
   importData: (file: File) => Promise<void>;
   resetData: () => void;
 }
@@ -220,6 +222,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     saveState(state);
   }, [state]);
+
+  // Ask the browser to keep our storage from being evicted (best-effort, once).
+  useEffect(() => {
+    requestPersistentStorage();
+  }, []);
 
   // A suggestion is tied to the current city's data — drop it when the city changes.
   useEffect(() => {
@@ -1032,6 +1039,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }).catch(() => window.alert('Could not generate the PDF report.'));
   }, [state]);
   const exportDeck = useCallback(() => exportPptx(state), [state]);
+  const backupData = useCallback(() => exportState(state), [state]);
   const importData = useCallback(async (file: File) => {
     const text = await file.text();
     const data = parseImport(text);
@@ -1107,6 +1115,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addCity,
     exportData,
     exportDeck,
+    backupData,
     importData,
     resetData,
   };

@@ -53,6 +53,23 @@ export function loadState(): AppState {
   return freshState();
 }
 
+/**
+ * Ask the browser to treat our origin's storage as persistent so it is not
+ * evicted under storage pressure or by time-based cleanup (e.g. Safari's ~7-day
+ * rule). Best-effort — unsupported browsers just ignore it.
+ */
+export async function requestPersistentStorage(): Promise<boolean> {
+  try {
+    if (navigator.storage && navigator.storage.persist) {
+      if (await navigator.storage.persisted()) return true;
+      return await navigator.storage.persist();
+    }
+  } catch {
+    /* unsupported — ignore */
+  }
+  return false;
+}
+
 export function saveState(state: AppState): void {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
